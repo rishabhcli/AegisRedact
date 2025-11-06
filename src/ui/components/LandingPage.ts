@@ -15,6 +15,36 @@ export class LandingPage {
     this.onGetStarted = onGetStarted;
     this.background = new AnimatedBackground(25);
     this.container = this.createLandingPage();
+    this.setupParallax();
+  }
+
+  private setupParallax(): void {
+    // Add subtle parallax effect on scroll
+    let ticking = false;
+
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const scrolled = this.container.scrollTop;
+          const heroSection = this.container.querySelector('.hero-section') as HTMLElement;
+
+          if (heroSection) {
+            const heroContent = heroSection.querySelector('.hero-content') as HTMLElement;
+            if (heroContent) {
+              // Parallax effect: content moves slower than scroll
+              heroContent.style.transform = `translateY(${scrolled * 0.3}px)`;
+              heroContent.style.opacity = `${1 - scrolled / 800}`;
+            }
+          }
+
+          ticking = false;
+        });
+
+        ticking = true;
+      }
+    };
+
+    this.container.addEventListener('scroll', handleScroll, { passive: true });
   }
 
   private createLandingPage(): HTMLElement {

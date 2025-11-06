@@ -9,6 +9,8 @@ import { FileList, type FileItem } from './components/FileList';
 import { CanvasStage } from './components/CanvasStage';
 import { RedactionList } from './components/RedactionList';
 import { Toast } from './components/Toast';
+import { SuccessAnimation } from './components/SuccessAnimation';
+import { ProgressBar } from './components/ProgressBar';
 
 import { loadPdf, renderPageToCanvas, getPageCount } from '../lib/pdf/load';
 import { findTextBoxes, extractPageText } from '../lib/pdf/find';
@@ -108,16 +110,61 @@ export class App {
   }
 
   private showApp(): void {
-    this.landingPage.hide();
-    if (this.appView) {
-      this.appView.style.display = 'flex';
-    }
+    // Fade out landing page
+    const landingEl = this.landingPage.getElement();
+    landingEl.style.opacity = '1';
+    landingEl.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+    landingEl.style.transform = 'scale(1)';
+
+    requestAnimationFrame(() => {
+      landingEl.style.opacity = '0';
+      landingEl.style.transform = 'scale(0.95)';
+    });
+
+    setTimeout(() => {
+      this.landingPage.hide();
+      if (this.appView) {
+        this.appView.style.display = 'flex';
+        this.appView.style.opacity = '0';
+        this.appView.style.transform = 'scale(1.05)';
+        this.appView.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+
+        requestAnimationFrame(() => {
+          this.appView!.style.opacity = '1';
+          this.appView!.style.transform = 'scale(1)';
+        });
+      }
+    }, 500);
   }
 
   private showLanding(): void {
-    this.landingPage.show();
+    // Fade out app view
     if (this.appView) {
-      this.appView.style.display = 'none';
+      this.appView.style.opacity = '1';
+      this.appView.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+      this.appView.style.transform = 'scale(1)';
+
+      requestAnimationFrame(() => {
+        this.appView!.style.opacity = '0';
+        this.appView!.style.transform = 'scale(1.05)';
+      });
+
+      setTimeout(() => {
+        this.appView!.style.display = 'none';
+        this.landingPage.show();
+
+        const landingEl = this.landingPage.getElement();
+        landingEl.style.opacity = '0';
+        landingEl.style.transform = 'scale(0.95)';
+        landingEl.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+
+        requestAnimationFrame(() => {
+          landingEl.style.opacity = '1';
+          landingEl.style.transform = 'scale(1)';
+        });
+      }, 500);
+    } else {
+      this.landingPage.show();
     }
   }
 
@@ -361,8 +408,20 @@ export class App {
     const pageCount = getPageCount(this.pdfDoc);
     const options = this.toolbar.getOptions();
 
+    // Show progress bar for multi-page documents
+    const progressBar = new ProgressBar();
+    if (pageCount > 3) {
+      progressBar.show('Scanning pages for sensitive information...');
+    }
+
     // Process each page (skip page 0 since we already processed it)
     for (let i = 1; i < pageCount; i++) {
+      // Update progress
+      if (pageCount > 3) {
+        const progress = ((i + 1) / pageCount) * 100;
+        progressBar.update(progress, i + 1, pageCount);
+      }
+
       const { page, viewport } = await renderPageToCanvas(this.pdfDoc, i, 2);
       const text = await extractPageText(page);
 
@@ -381,6 +440,11 @@ export class App {
         const expandedBoxes = expandBoxes(boxes, 4);
         this.pageBoxes.set(i, expandedBoxes);
       }
+    }
+
+    // Hide progress bar
+    if (pageCount > 3) {
+      progressBar.hide();
     }
   }
 
@@ -414,6 +478,10 @@ export class App {
       } else if (item.file.type.startsWith('image/')) {
         await this.exportImage();
       }
+
+      // Show success animation
+      const successAnim = new SuccessAnimation();
+      successAnim.show();
 
       this.toast.success('Export complete!');
     } catch (error) {

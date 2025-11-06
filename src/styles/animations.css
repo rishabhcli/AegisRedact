@@ -292,3 +292,29 @@
 .animate-progress {
   animation: progressBar 1s ease-out;
 }
+
+/* Success animation */
+@keyframes successPulse {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes confettiFall {
+  0% {
+    transform: translateX(0) translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(var(--end-x)) translateY(var(--end-y)) rotate(var(--rotation));
+    opacity: 0;
+  }
+}
