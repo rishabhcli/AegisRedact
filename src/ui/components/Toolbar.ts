@@ -68,25 +68,25 @@ export class Toolbar {
       </div>
 
       <div class="toolbar-section">
-        <button id="btn-export" class="btn btn-primary" disabled>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle; margin-right: 0.5rem;">
+        <button id="btn-export" class="btn btn-primary" disabled aria-label="Export redacted document">
+          <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="7 10 12 15 17 10"/>
             <line x1="12" y1="15" x2="12" y2="3"/>
           </svg>
-          Export Redacted
+          <span>Export Redacted</span>
         </button>
-        <button id="btn-new-file" class="btn btn-secondary" style="display: none;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle; margin-right: 0.5rem;">
+        <button id="btn-new-file" class="btn btn-secondary" style="display: none;" aria-label="Start with a new file">
+          <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 5v14M5 12h14"/>
           </svg>
-          New File
+          <span>New File</span>
         </button>
-        <button id="btn-reset" class="btn btn-secondary">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle; margin-right: 0.5rem;">
+        <button id="btn-reset" class="btn btn-secondary" aria-label="Return to landing page">
+          <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
           </svg>
-          Back to Home
+          <span>Back to Home</span>
         </button>
       </div>
 
