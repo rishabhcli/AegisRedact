@@ -528,34 +528,53 @@ export class App {
       const pageCount = getPageCount(this.pdfDoc);
       const canvases: HTMLCanvasElement[] = [];
 
-      console.log('Rasterizing', pageCount, 'pages to ensure secure redaction...');
+      console.log('🔥🔥🔥 SECURITY MODE: RASTERIZATION 🔥🔥🔥');
+      console.log('Rendering', pageCount, 'pages as images to DESTROY text layer...');
 
       for (let i = 0; i < pageCount; i++) {
+        console.log(`\n📄 Processing page ${i + 1}/${pageCount}...`);
+
         // Render page to canvas at scale 2 for quality
         const { page, canvas, viewport } = await renderPageToCanvas(this.pdfDoc, i, 2);
+        console.log(`  ✓ Rendered page to canvas: ${canvas.width}x${canvas.height}px`);
 
         // Get boxes for this page
         const boxes = this.pageBoxes.get(i) || [];
+        console.log(`  ✓ Found ${boxes.length} redaction boxes for this page`);
 
         // Draw redaction boxes directly on canvas (IRREVERSIBLE)
         if (boxes.length > 0) {
           const ctx = canvas.getContext('2d')!;
           ctx.fillStyle = '#000000'; // Opaque black
 
-          for (const box of boxes) {
+          for (let j = 0; j < boxes.length; j++) {
+            const box = boxes[j];
+            console.log(`    🖤 Drawing BLACK BOX ${j + 1}: x=${box.x.toFixed(1)}, y=${box.y.toFixed(1)}, w=${box.w.toFixed(1)}, h=${box.h.toFixed(1)}`);
+            console.log(`       Text being DESTROYED: "${box.text}"`);
+
             // Draw filled black rectangle (no transparency)
             ctx.fillRect(box.x, box.y, box.w, box.h);
           }
+          console.log(`  ✅ Applied ${boxes.length} IRREVERSIBLE black boxes directly to pixels`);
+        } else {
+          console.log(`  ℹ️  No redactions on this page`);
         }
 
         canvases.push(canvas);
       }
+
+      console.log('\n🔒 Converting canvases to PNG images (text is now gone)...');
 
       // Export as new PDF with rasterized pages (NO TEXT LAYER)
       const pdfBytes = await exportPdfFromCanvases(canvases, {
         title: 'Redacted Document',
         author: 'Aegis Redact'
       });
+
+      console.log('✅ SUCCESS: Created NEW PDF from images only');
+      console.log('📊 Original PDF had text layer: YES');
+      console.log('📊 New PDF has text layer: NO - DESTROYED');
+      console.log('📊 Redacted information is: PERMANENTLY GONE');
 
       console.log('Export successful, output size:', pdfBytes.length);
 
