@@ -591,8 +591,8 @@ export class App {
     this.toolbar.enableExport(false);
     this.toolbar.showNewFileButton(false);
 
-    // Return to landing page
-    this.showLanding();
+    // Just clear files, don't return to landing page
+    // User can stay in the app and load new files via drop zone
   }
 
   private handleNewFile() {
