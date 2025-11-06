@@ -44,30 +44,6 @@ export class Toolbar {
 
     toolbar.innerHTML = `
       <div class="toolbar-section">
-        <h3 class="toolbar-title">Detection</h3>
-        <label class="toolbar-checkbox">
-          <input type="checkbox" id="find-emails" checked>
-          <span>Emails</span>
-        </label>
-        <label class="toolbar-checkbox">
-          <input type="checkbox" id="find-phones" checked>
-          <span>Phone Numbers</span>
-        </label>
-        <label class="toolbar-checkbox">
-          <input type="checkbox" id="find-ssns" checked>
-          <span>SSNs</span>
-        </label>
-        <label class="toolbar-checkbox">
-          <input type="checkbox" id="find-cards" checked>
-          <span>Card Numbers (Luhn)</span>
-        </label>
-        <label class="toolbar-checkbox">
-          <input type="checkbox" id="use-ocr">
-          <span>OCR (if needed)</span>
-        </label>
-      </div>
-
-      <div class="toolbar-section">
         <button id="btn-export" class="btn btn-primary" disabled aria-label="Export redacted document">
           <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -82,22 +58,12 @@ export class Toolbar {
           </svg>
           <span>New File</span>
         </button>
-        <button id="btn-reset" class="btn btn-secondary" aria-label="Return to landing page">
+        <button id="btn-reset" class="btn btn-secondary" aria-label="Load new files">
           <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
           </svg>
-          <span>Back to Home</span>
+          <span>Load New Files</span>
         </button>
-      </div>
-
-      <div class="toolbar-warning">
-        <strong>⚠ Security Notice:</strong> Never use blur or pixelation for redaction.
-        This tool uses solid black rectangles and flattening to prevent recovery.
-      </div>
-
-      <div class="toolbar-privacy">
-        <strong>🔒 Privacy:</strong> All processing happens in your browser.
-        Nothing is uploaded.
       </div>
     `;
 

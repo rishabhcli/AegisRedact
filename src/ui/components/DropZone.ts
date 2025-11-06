@@ -23,12 +23,9 @@ export class DropZone {
         <svg class="drop-zone-icon animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        <p class="drop-zone-text gradient-text">Drop files here or click to select</p>
+        <p class="drop-zone-text gradient-text" style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem;">Remove Personally Identifiable Information</p>
+        <p class="drop-zone-hint" style="font-size: 1.1rem; margin-bottom: 1rem;">Drop files here or click to select</p>
         <p class="drop-zone-hint">Supports: PDF, JPEG, PNG, WebP</p>
-        <div class="drop-zone-features">
-          <span class="badge badge-success">Client-side Only</span>
-          <span class="badge badge-info">Privacy First</span>
-        </div>
       </div>
     `;
 
