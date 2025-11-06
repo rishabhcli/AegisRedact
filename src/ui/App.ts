@@ -11,8 +11,8 @@ import { Toast } from './components/Toast';
 
 import { loadPdf, renderPageToCanvas, getPageCount } from '../lib/pdf/load';
 import { findTextBoxes, extractPageText } from '../lib/pdf/find';
-import { applyBoxes, expandBoxes } from '../lib/pdf/redact';
-import { exportPdfFromCanvases } from '../lib/pdf/export';
+import { expandBoxes } from '../lib/pdf/redact';
+import { exportPdfWithRedactionBoxes } from '../lib/pdf/export';
 import { ocrCanvas, shouldSuggestOCR } from '../lib/pdf/ocr';
 
 import { loadImage } from '../lib/images/exif';
@@ -36,6 +36,7 @@ export class App {
   private currentFileIndex: number = -1;
   private currentPageIndex: number = 0;
   private pdfDoc: any = null;
+  private pdfBytes: ArrayBuffer | null = null; // Store original PDF bytes for export
   private currentImage: HTMLImageElement | null = null;
   private detectedBoxes: Box[] = [];
   private pageBoxes: Map<number, Box[]> = new Map(); // Track boxes per page
@@ -133,6 +134,7 @@ export class App {
   private async loadPdf(file: File) {
     try {
       const arrayBuffer = await file.arrayBuffer();
+      this.pdfBytes = arrayBuffer; // Store original PDF bytes for export
       this.pdfDoc = await loadPdf(arrayBuffer);
       this.pageBoxes.clear(); // Clear boxes when loading new PDF
       await this.renderPdfPage(0);
@@ -335,25 +337,18 @@ export class App {
   }
 
   private async exportPdf() {
-    if (!this.pdfDoc) return;
+    if (!this.pdfDoc || !this.pdfBytes) return;
 
-    const pageCount = getPageCount(this.pdfDoc);
-    const canvases: HTMLCanvasElement[] = [];
-
-    for (let i = 0; i < pageCount; i++) {
-      const { canvas } = await renderPageToCanvas(this.pdfDoc, i, 2);
-
-      // Get boxes for this specific page from the map
-      const boxes = this.pageBoxes.get(i) || [];
-      const redactedCanvas = applyBoxes(canvas, boxes);
-
-      canvases.push(redactedCanvas);
-    }
-
-    const pdfBytes = await exportPdfFromCanvases(canvases, {
-      title: 'Redacted Document',
-      author: 'Share-Safe Toolkit'
-    });
+    // Use the new rich-text preserving export function
+    const pdfBytes = await exportPdfWithRedactionBoxes(
+      this.pdfBytes,
+      this.pageBoxes,
+      2, // Scale factor used during rendering
+      {
+        title: 'Redacted Document',
+        author: 'Share-Safe Toolkit'
+      }
+    );
 
     const blob = new Blob([pdfBytes], { type: 'application/pdf' });
     const originalName = this.files[this.currentFileIndex].file.name;
@@ -379,6 +374,7 @@ export class App {
     this.files = [];
     this.currentFileIndex = -1;
     this.pdfDoc = null;
+    this.pdfBytes = null;
     this.currentImage = null;
     this.detectedBoxes = [];
     this.pageBoxes.clear();
