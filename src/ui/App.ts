@@ -16,7 +16,7 @@ import { PdfViewer } from './components/PdfViewer';
 import { loadPdf, renderPageToCanvas, getPageCount } from '../lib/pdf/load';
 import { findTextBoxes, extractPageText } from '../lib/pdf/find';
 import { expandBoxes } from '../lib/pdf/redact';
-import { exportPdfWithRedactionBoxes } from '../lib/pdf/export';
+import { exportPdfFromCanvases } from '../lib/pdf/export';
 import { ocrCanvas, shouldSuggestOCR } from '../lib/pdf/ocr';
 
 import { loadImage } from '../lib/images/exif';
@@ -523,16 +523,39 @@ export class App {
     console.log('Total pages:', getPageCount(this.pdfDoc));
 
     try {
-      // Use the new rich-text preserving export function
-      const pdfBytes = await exportPdfWithRedactionBoxes(
-        this.pdfBytes,
-        this.pageBoxes,
-        2, // Scale factor used during rendering
-        {
-          title: 'Redacted Document',
-          author: 'Share-Safe Toolkit'
+      // CRITICAL SECURITY: Rasterize pages to remove text layer completely
+      // This ensures redacted information cannot be recovered
+      const pageCount = getPageCount(this.pdfDoc);
+      const canvases: HTMLCanvasElement[] = [];
+
+      console.log('Rasterizing', pageCount, 'pages to ensure secure redaction...');
+
+      for (let i = 0; i < pageCount; i++) {
+        // Render page to canvas at scale 2 for quality
+        const { page, canvas, viewport } = await renderPageToCanvas(this.pdfDoc, i, 2);
+
+        // Get boxes for this page
+        const boxes = this.pageBoxes.get(i) || [];
+
+        // Draw redaction boxes directly on canvas (IRREVERSIBLE)
+        if (boxes.length > 0) {
+          const ctx = canvas.getContext('2d')!;
+          ctx.fillStyle = '#000000'; // Opaque black
+
+          for (const box of boxes) {
+            // Draw filled black rectangle (no transparency)
+            ctx.fillRect(box.x, box.y, box.w, box.h);
+          }
         }
-      );
+
+        canvases.push(canvas);
+      }
+
+      // Export as new PDF with rasterized pages (NO TEXT LAYER)
+      const pdfBytes = await exportPdfFromCanvases(canvases, {
+        title: 'Redacted Document',
+        author: 'Aegis Redact'
+      });
 
       console.log('Export successful, output size:', pdfBytes.length);
 

@@ -39,9 +39,12 @@ export class RedactionList {
     const title = `Detections (${this.items.length})`;
     this.element.querySelector('.redaction-list-title')!.textContent = title;
 
-    // Remove old list
+    // Remove old content (both list and empty message)
     const oldList = this.element.querySelector('.redaction-list-items');
     if (oldList) oldList.remove();
+
+    const oldEmpty = this.element.querySelector('.redaction-list-empty');
+    if (oldEmpty) oldEmpty.remove();
 
     if (this.items.length === 0) {
       const empty = document.createElement('p');
