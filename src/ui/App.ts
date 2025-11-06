@@ -114,8 +114,9 @@ export class App {
 
     this.container.appendChild(this.appView);
 
-    // Initially hide canvas stage
+    // Initially hide canvas stage and redaction list
     this.canvasStage.getElement().style.display = 'none';
+    this.redactionList.getElement().style.display = 'none';
   }
 
   private showApp(): void {
@@ -204,6 +205,7 @@ export class App {
       this.fileList.setFiles(fileItems);
       this.dropZone.hide();
       this.canvasStage.getElement().style.display = 'block';
+      this.redactionList.getElement().style.display = 'block';
       this.toolbar.enableExport(true);
       this.toolbar.showNewFileButton(true);
 
@@ -588,6 +590,7 @@ export class App {
 
     this.dropZone.show();
     this.canvasStage.getElement().style.display = 'none';
+    this.redactionList.getElement().style.display = 'none';
     this.toolbar.enableExport(false);
     this.toolbar.showNewFileButton(false);
 
