@@ -2,6 +2,7 @@
  * Main application component
  */
 
+import { LandingPage } from './components/LandingPage';
 import { DropZone } from './components/DropZone';
 import { Toolbar, type ToolbarOptions } from './components/Toolbar';
 import { FileList, type FileItem } from './components/FileList';
@@ -25,6 +26,8 @@ import type { Box } from '../lib/pdf/find';
 
 export class App {
   private container: HTMLElement;
+  private landingPage: LandingPage;
+  private appView: HTMLElement | null = null;
   private dropZone: DropZone;
   private toolbar: Toolbar;
   private fileList: FileList;
@@ -45,6 +48,10 @@ export class App {
     this.container = container;
     this.toast = new Toast();
 
+    // Create landing page
+    this.landingPage = new LandingPage(() => this.showApp());
+
+    // Create app components
     this.dropZone = new DropZone((files) => this.handleFiles(files));
     this.toolbar = new Toolbar(
       (options) => this.handleToolbarChange(options),
@@ -64,6 +71,21 @@ export class App {
   private render() {
     this.container.className = 'app-container';
 
+    // Show landing page initially
+    this.container.appendChild(this.landingPage.getElement());
+
+    // Create app view but keep it hidden
+    this.appView = document.createElement('div');
+    this.appView.className = 'app-view';
+    this.appView.style.display = 'none';
+    this.appView.style.width = '100%';
+    this.appView.style.height = '100vh';
+    this.appView.style.display = 'none';
+
+    const appContainer = document.createElement('div');
+    appContainer.className = 'app-container';
+    appContainer.style.height = '100%';
+
     const sidebar = document.createElement('div');
     sidebar.className = 'app-sidebar';
     sidebar.appendChild(this.toolbar.getElement());
@@ -75,11 +97,28 @@ export class App {
     main.appendChild(this.dropZone.getElement());
     main.appendChild(this.canvasStage.getElement());
 
-    this.container.appendChild(sidebar);
-    this.container.appendChild(main);
+    appContainer.appendChild(sidebar);
+    appContainer.appendChild(main);
+    this.appView.appendChild(appContainer);
+
+    this.container.appendChild(this.appView);
 
     // Initially hide canvas stage
     this.canvasStage.getElement().style.display = 'none';
+  }
+
+  private showApp(): void {
+    this.landingPage.hide();
+    if (this.appView) {
+      this.appView.style.display = 'flex';
+    }
+  }
+
+  private showLanding(): void {
+    this.landingPage.show();
+    if (this.appView) {
+      this.appView.style.display = 'none';
+    }
   }
 
   private async handleFiles(files: File[]) {
@@ -459,6 +498,9 @@ export class App {
     this.dropZone.show();
     this.canvasStage.getElement().style.display = 'none';
     this.toolbar.enableExport(false);
+
+    // Return to landing page
+    this.showLanding();
   }
 }
 
