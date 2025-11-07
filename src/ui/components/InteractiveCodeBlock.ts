@@ -13,6 +13,7 @@ export class InteractiveCodeBlock {
 
   private createContainer(): HTMLElement {
     const container = document.createElement('div');
+    this.container = container;
     container.className = 'code-block';
     container.style.cssText = `
       position: relative;

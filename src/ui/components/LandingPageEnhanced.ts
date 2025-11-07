@@ -15,7 +15,6 @@ import { LiveCounter } from './LiveCounter';
 import { TrustIndicators } from './TrustIndicators';
 import { InteractiveCodeBlock } from './InteractiveCodeBlock';
 import { FAQAccordion } from './FAQAccordion';
-import { LoadingAnimation } from './LoadingAnimation';
 import { FeatureCard, type FeatureData } from './FeatureCard';
 
 export class LandingPageEnhanced {
@@ -25,7 +24,6 @@ export class LandingPageEnhanced {
   private mouseSpotlight: MouseSpotlight;
   private scrollObserver: ScrollAnimationObserver;
   private floatingCTA: FloatingCTA;
-  private loadingAnimation: LoadingAnimation;
   private onGetStarted: () => void;
   private mouseVelocityX: number = 0;
   private mouseVelocityY: number = 0;
@@ -34,11 +32,7 @@ export class LandingPageEnhanced {
 
   constructor(onGetStarted: () => void) {
     this.onGetStarted = onGetStarted;
-
-    // Show loading animation first
-    this.loadingAnimation = new LoadingAnimation(() => {
-      this.init();
-    });
+    this.init();
   }
 
   private init(): void {
