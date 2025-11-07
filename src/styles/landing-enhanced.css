@@ -1,0 +1,488 @@
+/**
+ * Enhanced Landing Page Animations
+ * Creative mathematical and interactive effects for the home screen
+ */
+
+/* ========================================
+   Math Badge & Shimmer Effects
+   ======================================== */
+
+.math-badge {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer-text {
+  background: linear-gradient(
+    90deg,
+    currentColor 0%,
+    rgba(255, 255, 255, 0.8) 50%,
+    currentColor 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: textShimmer 3s linear infinite;
+}
+
+@keyframes textShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* ========================================
+   Logo & Brand Animations
+   ======================================== */
+
+.logo-icon {
+  filter: drop-shadow(0 0 20px rgba(102, 126, 234, 0.6));
+  transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.logo-icon:hover {
+  filter: drop-shadow(0 0 30px rgba(102, 126, 234, 1));
+  animation: rotate3D 4s ease-in-out infinite;
+}
+
+@keyframes rotate3D {
+  0%, 100% {
+    transform: perspective(1000px) rotateY(0deg) rotateX(0deg);
+  }
+  25% {
+    transform: perspective(1000px) rotateY(10deg) rotateX(5deg);
+  }
+  50% {
+    transform: perspective(1000px) rotateY(0deg) rotateX(10deg);
+  }
+  75% {
+    transform: perspective(1000px) rotateY(-10deg) rotateX(5deg);
+  }
+}
+
+.brand-title {
+  transition: all 0.3s ease;
+  cursor: default;
+}
+
+.brand-title:hover {
+  transform: scale(1.05);
+  letter-spacing: 0.05em;
+}
+
+/* ========================================
+   Stats Row with Mathematical Effects
+   ======================================== */
+
+.stats-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-xl);
+  margin: var(--space-xl) 0;
+  flex-wrap: wrap;
+}
+
+.stat-item {
+  text-align: center;
+  padding: var(--space-md);
+  border-radius: 12px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  min-width: 140px;
+  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-item::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: radial-gradient(circle, rgba(102, 126, 234, 0.3) 0%, transparent 70%);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s ease, height 0.6s ease;
+  border-radius: 50%;
+}
+
+.stat-item:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.stat-item:hover {
+  transform: translateY(-10px) scale(1.1);
+  box-shadow: 0 20px 40px rgba(102, 126, 234, 0.4);
+  border-color: var(--accent-blue);
+}
+
+.stat-number {
+  font-size: 3rem;
+  font-weight: 900;
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+  font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.stat-divider {
+  font-size: 2.5rem;
+  color: var(--accent-blue);
+  font-weight: 300;
+  opacity: 0.5;
+}
+
+/* ========================================
+   Highlight Text Effect
+   ======================================== */
+
+.highlight-text {
+  position: relative;
+  color: var(--accent-blue);
+  font-weight: 600;
+  padding: 0 4px;
+  transition: all 0.3s ease;
+}
+
+.highlight-text::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: var(--gradient-primary);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s ease;
+}
+
+.hero-subtitle:hover .highlight-text::before {
+  transform: scaleX(1);
+}
+
+/* ========================================
+   Floating Math Symbols
+   ======================================== */
+
+.floating-math-symbols {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: 0.15;
+}
+
+.math-symbol {
+  position: absolute;
+  font-size: 2.5rem;
+  font-weight: 300;
+  color: var(--accent-blue);
+  animation: floatMath 20s ease-in-out infinite;
+  filter: blur(1px);
+}
+
+@keyframes floatMath {
+  0%, 100% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 0.1;
+  }
+  25% {
+    transform: translate(30px, -50px) rotate(90deg);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translate(-20px, -100px) rotate(180deg);
+    opacity: 0.15;
+  }
+  75% {
+    transform: translate(40px, -150px) rotate(270deg);
+    opacity: 0.2;
+  }
+  100% {
+    transform: translate(0, -200px) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+/* ========================================
+   Enhanced CTA Button with Pulse
+   ======================================== */
+
+.pulse-on-hover {
+  position: relative;
+}
+
+.pulse-on-hover::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  background: var(--gradient-primary);
+  border-radius: inherit;
+  opacity: 0;
+  z-index: -1;
+  animation: pulseRing 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
+}
+
+@keyframes pulseRing {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+}
+
+.pulse-on-hover:hover::after {
+  animation: pulseRingFast 1s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
+}
+
+/* ========================================
+   3D Hover Card Effects
+   ======================================== */
+
+.hover-3d-card {
+  transform-style: preserve-3d;
+  transition: transform 0.3s ease;
+  will-change: transform;
+}
+
+/* ========================================
+   Feature Card Enhancements
+   ======================================== */
+
+.feature-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.hover-icon-float {
+  position: relative;
+  transition: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.feature-card:hover .hover-icon-float {
+  transform: translateY(-8px) scale(1.1) rotate(5deg);
+  filter: drop-shadow(0 10px 20px rgba(102, 126, 234, 0.5));
+}
+
+/* Icon Particles */
+.icon-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.icon-particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: var(--accent-blue);
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  transition: all 0.6s ease;
+}
+
+.feature-card:hover .icon-particle {
+  opacity: 1;
+  animation: particleExplode 1.2s ease-out forwards;
+}
+
+@keyframes particleExplode {
+  0% {
+    transform: translate(-50%, -50%) translate(0, 0) scale(0);
+    opacity: 1;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%)
+               translate(
+                 calc(cos(var(--angle)) * 50px),
+                 calc(sin(var(--angle)) * 50px)
+               )
+               scale(1);
+    opacity: 0;
+  }
+}
+
+/* Gradient Text on Hover */
+.gradient-text-on-hover {
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.feature-card:hover .gradient-text-on-hover {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Card Corner Decoration */
+.card-corner-decoration {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 60px;
+  height: 60px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.card-corner-decoration::before {
+  content: '';
+  position: absolute;
+  top: -30px;
+  right: -30px;
+  width: 60px;
+  height: 60px;
+  background: var(--gradient-primary);
+  transform: rotate(45deg);
+  opacity: 0;
+  transition: all 0.4s ease;
+}
+
+.feature-card:hover .card-corner-decoration::before {
+  opacity: 0.2;
+  top: -20px;
+  right: -20px;
+}
+
+/* ========================================
+   Stagger Animation Enhancement
+   ======================================== */
+
+.stagger-3 {
+  animation-delay: 0.3s;
+}
+
+/* ========================================
+   Mathematical Hover Effect
+   ======================================== */
+
+.hover-math-effect {
+  position: relative;
+}
+
+.hover-math-effect::after {
+  content: 'f(x)';
+  position: absolute;
+  top: -20px;
+  right: -10px;
+  font-size: 0.7rem;
+  font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+  color: var(--accent-blue);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.3s ease;
+  font-style: italic;
+}
+
+.hover-math-effect:hover::after {
+  opacity: 0.6;
+  transform: translateY(0);
+}
+
+/* ========================================
+   Responsive Adjustments
+   ======================================== */
+
+@media (max-width: 768px) {
+  .stats-row {
+    gap: var(--space-md);
+  }
+
+  .stat-item {
+    min-width: 100px;
+  }
+
+  .stat-number {
+    font-size: 2rem;
+  }
+
+  .stat-divider {
+    font-size: 1.5rem;
+  }
+
+  .math-symbol {
+    font-size: 1.5rem;
+  }
+
+  /* Disable 3D effects on mobile for better performance */
+  .hover-3d-card {
+    transform: none !important;
+  }
+
+  .feature-card:hover {
+    transform: translateY(-4px) !important;
+  }
+}
+
+/* ========================================
+   Accessibility: Reduced Motion
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .math-symbol,
+  .pulse-on-hover::after,
+  .icon-particle,
+  .shimmer-text {
+    animation: none !important;
+  }
+
+  .stat-item:hover,
+  .feature-card:hover,
+  .logo-icon:hover {
+    transform: none;
+  }
+
+  .hover-3d-card {
+    transform: none !important;
+  }
+}
+
+/* ========================================
+   Dark Mode Enhancements
+   ======================================== */
+
+@media (prefers-color-scheme: dark) {
+  .stat-item {
+    background: rgba(26, 31, 53, 0.8);
+  }
+
+  .math-symbol {
+    color: var(--accent-blue);
+    filter: blur(1px) brightness(1.2);
+  }
+}
