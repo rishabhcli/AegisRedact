@@ -2,7 +2,7 @@
  * Main application component
  */
 
-import { LandingPage } from './components/LandingPage';
+import { LandingPageEnhanced } from './components/LandingPageEnhanced';
 import { DropZone } from './components/DropZone';
 import { Toolbar, type ToolbarOptions } from './components/Toolbar';
 import { FileList, type FileItem } from './components/FileList';
@@ -32,7 +32,7 @@ import type { Box } from '../lib/pdf/find';
 
 export class App {
   private container: HTMLElement;
-  private landingPage: LandingPage;
+  private landingPage: LandingPageEnhanced;
   private appView: HTMLElement | null = null;
   private dropZone: DropZone;
   private toolbar: Toolbar;
@@ -65,8 +65,8 @@ export class App {
     // Load ML preference from localStorage
     this.useML = localStorage.getItem('ml-detection-enabled') === 'true';
 
-    // Create landing page
-    this.landingPage = new LandingPage(() => this.showApp());
+    // Create enhanced landing page with all immersive features
+    this.landingPage = new LandingPageEnhanced(() => this.showApp());
 
     // Create app components
     this.dropZone = new DropZone((files) => this.handleFiles(files));
