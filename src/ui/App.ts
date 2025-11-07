@@ -80,7 +80,8 @@ export class App {
     });
     this.pdfViewer = new PdfViewer(
       () => this.handlePdfDownload(),
-      () => this.handlePdfViewerBack()
+      () => this.handlePdfViewerBack(),
+      () => this.handleStartRedacting()
     );
 
     this.render();
@@ -246,16 +247,34 @@ export class App {
       this.files = fileItems;
       this.fileList.setFiles(fileItems);
       this.dropZone.hide();
-      this.canvasStage.getElement().style.display = 'block';
-      this.redactionList.getElement().style.display = 'block';
-      this.toolbar.enableExport(true);
       this.toolbar.showNewFileButton(true);
 
       // Auto-select first file
       this.currentFileIndex = 0;
-      await this.loadFile(0);
 
-      this.toast.success(`Loaded ${fileItems.length} file(s)`);
+      // For PDFs, show native viewer first
+      const firstItem = fileItems[0];
+      if (firstItem.file.type === 'application/pdf') {
+        const arrayBuffer = await firstItem.file.arrayBuffer();
+        // Store the PDF bytes for later use
+        this.pdfBytes = arrayBuffer.slice(0);
+
+        // Hide the app container and show the PDF viewer
+        const appContainer = this.appView?.querySelector('.app-container') as HTMLElement;
+        if (appContainer) {
+          appContainer.style.display = 'none';
+        }
+
+        this.pdfViewer.showInitialView(arrayBuffer);
+        this.toast.success(`Loaded ${fileItems.length} file(s)`);
+      } else {
+        // For images, go straight to the canvas editor
+        this.canvasStage.getElement().style.display = 'block';
+        this.redactionList.getElement().style.display = 'block';
+        this.toolbar.enableExport(true);
+        await this.loadFile(0);
+        this.toast.success(`Loaded ${fileItems.length} file(s)`);
+      }
     }
   }
 
@@ -804,6 +823,35 @@ export class App {
     }, 300);
 
     this.toast.info('Back to editing mode');
+  }
+
+  private async handleStartRedacting() {
+    // Hide the PDF viewer
+    this.pdfViewer.hide();
+
+    // Show the canvas stage and redaction list after animation completes
+    setTimeout(async () => {
+      const appContainer = this.appView?.querySelector('.app-container') as HTMLElement;
+      if (appContainer) {
+        appContainer.style.display = 'flex';
+        appContainer.style.opacity = '0';
+        appContainer.style.transition = 'opacity 0.3s ease';
+
+        requestAnimationFrame(() => {
+          appContainer.style.opacity = '1';
+        });
+      }
+
+      this.canvasStage.getElement().style.display = 'block';
+      this.redactionList.getElement().style.display = 'block';
+      this.toolbar.enableExport(true);
+
+      // Load the PDF into the canvas-based editor
+      if (this.currentFileIndex >= 0) {
+        await this.loadFile(this.currentFileIndex);
+        this.toast.info('Ready to redact. Draw boxes or use auto-detection.');
+      }
+    }, 300);
   }
 }
 
