@@ -6,6 +6,7 @@
 /* Import modern styles */
 @import './styles/animations.css';
 @import './styles/modern.css';
+@import './styles/landing-enhanced.css';
 
 /* Reset and base styles */
 * {
