@@ -66,17 +66,22 @@ export class DropZone {
     return dropZone;
   }
 
-  private async openFilePicker() {
+  private openFilePicker() {
     const input = document.createElement('input');
     input.type = 'file';
     input.multiple = true;
     input.accept = '.pdf,.jpg,.jpeg,.png,.webp';
+    input.style.display = 'none';
 
     input.addEventListener('change', () => {
       const files = Array.from(input.files || []);
       this.handleFiles(files);
+      // Clean up the input element after use
+      document.body.removeChild(input);
     });
 
+    // Append to DOM before clicking (required for some browsers)
+    document.body.appendChild(input);
     input.click();
   }
 
