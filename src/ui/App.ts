@@ -513,27 +513,30 @@ export class App {
     canvasForOCR?: HTMLCanvasElement
   ) {
     const baseText = await extractPageText(page);
-    let combinedText = baseText;
 
     // Check if this is a scanned PDF (little to no text)
     const isScannedPdf = await shouldSuggestOCR(page);
 
-    if (isScannedPdf && !options.useOCR) {
-      // Auto-enable OCR for scanned PDFs and notify user
-      this.toast.info('Scanned PDF detected. Auto-enabling OCR for text detection...');
+    // For scanned PDFs, use OCR-based detection (like images)
+    if (isScannedPdf && canvasForOCR) {
+      this.toast.info(`Scanned PDF detected. Running OCR on page ${pageIndex + 1}...`);
 
-      // Enable OCR in toolbar
+      // Auto-enable OCR in toolbar for future pages
       const ocrCheckbox = this.toolbar.getElement().querySelector('#use-ocr') as HTMLInputElement;
-      if (ocrCheckbox) {
+      if (ocrCheckbox && !ocrCheckbox.checked) {
         ocrCheckbox.checked = true;
       }
 
-      // Update options and trigger re-analysis
-      const updatedOptions = this.toolbar.getOptions();
-      options.useOCR = true; // Update for current analysis
+      // Use the same OCR-based detection as images
+      await this.analyzeImageDetections(pageIndex, canvasForOCR, options);
+      return;
     }
 
-    if (options.useOCR && canvasForOCR && isScannedPdf) {
+    // For PDFs with text layers, use the standard text extraction approach
+    let combinedText = baseText;
+
+    // Optionally supplement with OCR if enabled
+    if (options.useOCR && canvasForOCR && baseText.trim().length > 0) {
       this.toast.info(`Running OCR on page ${pageIndex + 1}...`);
       const ocrText = await ocrCanvas(canvasForOCR);
       combinedText = `${combinedText} ${ocrText}`;
