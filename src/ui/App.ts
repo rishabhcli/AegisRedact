@@ -23,11 +23,13 @@ import { ocrCanvas, shouldSuggestOCR } from '../lib/pdf/ocr';
 import { loadImage } from '../lib/images/exif';
 import { exportRedactedImage } from '../lib/images/redact';
 
-import { detectAllPII } from '../lib/detect/patterns';
+import { detectAllPII, detectAllPIIWithMetadata } from '../lib/detect/patterns';
 import { loadMLModel, isMLAvailable } from '../lib/detect/ml';
 import { saveBlob } from '../lib/fs/io';
+import type { DetectionResult } from '../lib/detect/merger';
 
 import type { Box } from '../lib/pdf/find';
+import type { EnhancedBox, AuditStats, PIIType, DetectionMethod } from '../lib/detect/types';
 
 export class App {
   private container: HTMLElement;
@@ -48,8 +50,8 @@ export class App {
   private pdfDoc: any = null;
   private pdfBytes: ArrayBuffer | null = null; // Store original PDF bytes for export
   private currentImage: HTMLImageElement | null = null;
-  private detectedBoxes: Box[] = [];
-  private pageBoxes: Map<number, Box[]> = new Map(); // Track boxes per page
+  private detectedBoxes: EnhancedBox[] = [];
+  private pageBoxes: Map<number, EnhancedBox[]> = new Map(); // Track boxes per page
   private useML: boolean = false; // ML detection toggle
   private mlLoadPromise: Promise<boolean> | null = null;
 
@@ -408,8 +410,8 @@ export class App {
     const mlReady = this.useML ? await this.ensureMLModelReady() : false;
     console.log('ML ready for this run:', mlReady);
 
-    // Use unified detection function
-    const foundTerms = await detectAllPII(text, {
+    // Use metadata version for type information
+    const detectionResults = await detectAllPIIWithMetadata(text, {
       findEmails: options.findEmails,
       findPhones: options.findPhones,
       findSSNs: options.findSSNs,
@@ -418,13 +420,14 @@ export class App {
       mlMinConfidence: 0.8
     });
 
-    console.log('Total terms found:', foundTerms.length, foundTerms);
+    console.log('Total detections found:', detectionResults.length, detectionResults);
 
-    // Find boxes for these terms
+    // Find boxes for these detections
     let boxes: Box[] = [];
 
     if (page && viewport) {
       console.log('Finding text boxes with viewport:', viewport.scale);
+      const foundTerms = detectionResults.map(d => d.text);
       boxes = await findTextBoxes(page, viewport, (str) => {
         // Match if the text item contains a full term OR if the text item IS the term
         // This prevents partial matches like "2" matching "626"
@@ -448,14 +451,18 @@ export class App {
       console.warn('No page or viewport provided for box detection');
     }
 
-    // Expand boxes slightly for better coverage
-    this.detectedBoxes = expandBoxes(boxes, 4);
-    console.log('Expanded boxes:', this.detectedBoxes.length);
+    // Expand boxes slightly for better coverage and convert to EnhancedBox
+    const expandedBoxes = expandBoxes(boxes, 4);
+    this.detectedBoxes = this.tagBoxesWithMetadata(expandedBoxes, detectionResults);
+    console.log('Enhanced boxes:', this.detectedBoxes.length);
 
     // Store boxes for current page
     this.pageBoxes.set(this.currentPageIndex, this.detectedBoxes);
     console.log('Stored boxes for page', this.currentPageIndex, '- total pages with boxes:', this.pageBoxes.size);
 
+    // Update audit stats and UI
+    const auditStats = this.calculateAuditStats();
+    this.redactionList.setAuditStats(auditStats);
     this.redactionList.setItems(this.detectedBoxes);
     this.canvasStage.setBoxes(this.detectedBoxes);
 
@@ -525,10 +532,111 @@ export class App {
   }
 
   private handleBoxesChange(boxes: Box[]) {
-    // Manual boxes added/changed
-    this.detectedBoxes = boxes;
+    // Manual boxes added/changed - tag them as manual
+    const existingBoxes = this.detectedBoxes.filter(b =>
+      boxes.some(newBox => newBox.x === b.x && newBox.y === b.y)
+    );
+
+    const newManualBoxes = boxes.filter(newBox =>
+      !this.detectedBoxes.some(b => b.x === newBox.x && b.y === newBox.y)
+    );
+
+    // Tag new manual boxes
+    const taggedManualBoxes: EnhancedBox[] = newManualBoxes.map(box => ({
+      ...box,
+      type: 'manual' as PIIType,
+      detectionMethod: 'manual' as DetectionMethod,
+      confidence: 1.0,
+      pageNumber: this.currentPageIndex + 1
+    }));
+
+    this.detectedBoxes = [...existingBoxes, ...taggedManualBoxes];
+
     // Update the page boxes map
-    this.pageBoxes.set(this.currentPageIndex, boxes);
+    this.pageBoxes.set(this.currentPageIndex, this.detectedBoxes);
+
+    // Update audit stats
+    const auditStats = this.calculateAuditStats();
+    this.redactionList.setAuditStats(auditStats);
+  }
+
+  private tagBoxesWithMetadata(boxes: Box[], detectionResults: DetectionResult[]): EnhancedBox[] {
+    return boxes.map(box => {
+      // Find matching detection result
+      const detection = detectionResults.find(d =>
+        box.text.includes(d.text) || d.text.includes(box.text)
+      );
+
+      if (!detection) {
+        // Fallback for unmatched boxes
+        return {
+          ...box,
+          type: 'manual' as PIIType,
+          detectionMethod: 'manual' as DetectionMethod,
+          confidence: 1.0,
+          pageNumber: this.currentPageIndex + 1
+        };
+      }
+
+      // Map detection types to PIIType
+      const typeMap: Record<string, PIIType> = {
+        'email': 'email',
+        'phone': 'phone',
+        'ssn': 'ssn',
+        'card': 'card',
+        'person': 'name',
+        'org': 'org',
+        'location': 'location'
+      };
+
+      return {
+        ...box,
+        type: typeMap[detection.type] || 'manual' as PIIType,
+        detectionMethod: detection.source as DetectionMethod,
+        confidence: detection.confidence,
+        pageNumber: this.currentPageIndex + 1
+      };
+    });
+  }
+
+  private calculateAuditStats(): AuditStats {
+    const allBoxes: EnhancedBox[] = [];
+
+    // Collect all boxes from all pages
+    for (const boxes of this.pageBoxes.values()) {
+      allBoxes.push(...boxes);
+    }
+
+    // Count by type
+    const byType: Record<PIIType, number> = {
+      'email': 0,
+      'phone': 0,
+      'ssn': 0,
+      'card': 0,
+      'name': 0,
+      'org': 0,
+      'location': 0,
+      'manual': 0
+    };
+
+    allBoxes.forEach(box => {
+      if (box.type in byType) {
+        byType[box.type]++;
+      }
+    });
+
+    // Get unique detection methods used
+    const methodsUsed = [...new Set(allBoxes.map(b => b.detectionMethod))];
+
+    // Get unique pages with detections
+    const pagesAffected = new Set(allBoxes.map(b => b.pageNumber)).size;
+
+    return {
+      total: allBoxes.length,
+      byType,
+      pagesAffected,
+      methodsUsed
+    };
   }
 
   private async handleExport() {
