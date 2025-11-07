@@ -20,12 +20,17 @@ export class DropZone {
 
     dropZone.innerHTML = `
       <div class="drop-zone-content animate-fade-in">
-        <svg class="drop-zone-icon animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <svg class="drop-zone-icon animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="filter: drop-shadow(0 0 20px rgba(102, 126, 234, 0.6));">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        <p class="drop-zone-text gradient-text" style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem;">Remove Personally Identifiable Information</p>
-        <p class="drop-zone-hint" style="font-size: 1.1rem; margin-bottom: 1rem;">Drop files here or click to select</p>
-        <p class="drop-zone-hint">Supports: PDF, JPEG, PNG, WebP</p>
+        <p class="drop-zone-text gradient-text" style="font-size: 1.75rem; font-weight: 800; margin-bottom: 0.75rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Start Redacting</p>
+        <p class="drop-zone-hint" style="font-size: 1.15rem; margin-bottom: 1.5rem; font-weight: 500;">Drop your files here or click to browse</p>
+        <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1rem;">
+          <span style="padding: 0.5rem 1rem; background: rgba(102, 126, 234, 0.2); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 20px; font-size: 0.85rem; font-weight: 600;">PDF</span>
+          <span style="padding: 0.5rem 1rem; background: rgba(102, 126, 234, 0.2); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 20px; font-size: 0.85rem; font-weight: 600;">JPEG</span>
+          <span style="padding: 0.5rem 1rem; background: rgba(102, 126, 234, 0.2); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 20px; font-size: 0.85rem; font-weight: 600;">PNG</span>
+          <span style="padding: 0.5rem 1rem; background: rgba(102, 126, 234, 0.2); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 20px; font-size: 0.85rem; font-weight: 600;">WebP</span>
+        </div>
       </div>
     `;
 
