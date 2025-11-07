@@ -8,6 +8,11 @@ export type Box = {
   w: number;
   h: number;
   text: string;
+  page?: number;
+  type?: string;
+  source?: 'regex' | 'ml' | 'manual';
+  confidence?: number;
+  detectionId?: string;
 };
 
 /**

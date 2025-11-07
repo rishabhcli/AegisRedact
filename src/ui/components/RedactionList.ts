@@ -1,21 +1,28 @@
 import type { Box } from '../../lib/pdf/find';
 
 /**
- * Redaction list component showing found matches
+ * Redaction list component showing matches across the whole document
  */
 
 export interface RedactionItem extends Box {
   id: string;
   enabled: boolean;
+  page: number;
+  type?: string;
+  source?: 'regex' | 'ml';
+  confidence?: number;
 }
 
 export class RedactionList {
   private element: HTMLDivElement;
   private items: RedactionItem[] = [];
+  private activePage: number = 0;
   private onChange: (items: RedactionItem[]) => void;
+  private onNavigate: (item: RedactionItem) => void;
 
-  constructor(onChange: (items: RedactionItem[]) => void) {
+  constructor(onChange: (items: RedactionItem[]) => void, onNavigate: (item: RedactionItem) => void) {
     this.onChange = onChange;
+    this.onNavigate = onNavigate;
     this.element = this.createList();
   }
 
@@ -26,13 +33,26 @@ export class RedactionList {
     return container;
   }
 
-  setItems(boxes: Box[]) {
-    this.items = boxes.map((box, index) => ({
-      ...box,
-      id: `detection-${index}`,
-      enabled: true
-    }));
+  setItems(items: RedactionItem[]) {
+    this.items = items;
     this.render();
+  }
+
+  setActivePage(page: number) {
+    this.activePage = page;
+    this.highlightActivePage();
+  }
+
+  private highlightActivePage() {
+    const rows = this.element.querySelectorAll<HTMLLIElement>('.redaction-list-item');
+    rows.forEach((row) => {
+      const rowPage = Number(row.dataset.page ?? -1);
+      if (rowPage === this.activePage) {
+        row.classList.add('redaction-list-item--active');
+      } else {
+        row.classList.remove('redaction-list-item--active');
+      }
+    });
   }
 
   private render() {
@@ -57,36 +77,69 @@ export class RedactionList {
     const list = document.createElement('ul');
     list.className = 'redaction-list-items';
 
-    this.items.forEach((item) => {
+    const sortedItems = [...this.items].sort((a, b) => a.page - b.page);
+
+    sortedItems.forEach((item) => {
       const li = document.createElement('li');
       li.className = 'redaction-list-item';
+      li.dataset.page = item.page.toString();
+      if (item.page === this.activePage) {
+        li.classList.add('redaction-list-item--active');
+      }
 
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.checked = item.enabled;
       checkbox.id = item.id;
-      checkbox.addEventListener('change', () => {
+      checkbox.addEventListener('change', (event) => {
+        event.stopPropagation();
         item.enabled = checkbox.checked;
         this.onChange(this.items);
       });
 
-      const label = document.createElement('label');
-      label.htmlFor = item.id;
-      label.textContent = item.text.substring(0, 30);
-      if (item.text.length > 30) {
-        label.textContent += '...';
-      }
+      const meta = document.createElement('div');
+      meta.className = 'redaction-list-item-meta';
+      const typeLabel = item.type ? item.type.toUpperCase() : 'MATCH';
+      const pageLabel = `Page ${item.page + 1}`;
+      meta.textContent = `${pageLabel} · ${typeLabel}`;
+
+      const label = document.createElement('p');
+      label.className = 'redaction-list-item-text';
+      label.textContent = this.truncate(item.text || '', 80);
+      label.title = item.text;
 
       li.appendChild(checkbox);
+      li.appendChild(meta);
       li.appendChild(label);
+
+      li.addEventListener('click', (event) => {
+        if ((event.target as HTMLElement).tagName === 'INPUT') {
+          return;
+        }
+        this.onNavigate(item);
+      });
+
+      li.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          this.onNavigate(item);
+        }
+      });
+
+      li.tabIndex = 0;
       list.appendChild(li);
     });
 
     this.element.appendChild(list);
   }
 
-  getEnabledBoxes(): Box[] {
-    return this.items.filter((item) => item.enabled);
+  private truncate(text: string, max: number): string {
+    if (text.length <= max) return text;
+    return `${text.substring(0, max)}…`;
+  }
+
+  getItems(): RedactionItem[] {
+    return this.items;
   }
 
   getElement(): HTMLDivElement {

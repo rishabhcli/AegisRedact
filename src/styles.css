@@ -374,11 +374,41 @@ body {
 
 .canvas-controls {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: 0.75rem;
   padding: 1rem;
   background: var(--glass-bg);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--glass-border);
+}
+
+.canvas-zoom-controls {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.canvas-zoom-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  min-width: 48px;
+  text-align: right;
+}
+
+.canvas-page-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.canvas-page-controls span {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  min-width: 120px;
+  text-align: center;
 }
 
 .canvas-wrapper {
@@ -405,6 +435,18 @@ body {
 .canvas-wrapper canvas:focus {
   outline: 2px solid var(--accent-blue);
   outline-offset: 4px;
+}
+
+@media (max-width: 768px) {
+  .canvas-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .canvas-page-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
 }
 
 /* Canvas drawing feedback */
@@ -454,8 +496,9 @@ body {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.5rem 0;
+  padding: 0.65rem 0;
   border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
 }
 
 .redaction-list-item:last-child {
@@ -468,11 +511,25 @@ body {
   cursor: pointer;
 }
 
-.redaction-list-item label {
+.redaction-list-item-meta {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  min-width: 130px;
+}
+
+.redaction-list-item-text {
   flex: 1;
-  cursor: pointer;
-  font-size: 0.9rem;
+  margin: 0;
+  font-size: 0.85rem;
   font-family: 'Courier New', monospace;
+}
+
+.redaction-list-item--active {
+  background: rgba(102, 126, 234, 0.08);
+  border-radius: 8px;
+  padding-inline: 0.5rem;
 }
 
 .redaction-list-empty {

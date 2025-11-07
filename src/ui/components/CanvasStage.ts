@@ -1,5 +1,10 @@
 import type { Box } from '../../lib/pdf/find';
 
+interface CanvasStageOptions {
+  onPrevPage?: () => void;
+  onNextPage?: () => void;
+}
+
 /**
  * Canvas stage for displaying and editing redactions
  */
@@ -14,10 +19,23 @@ export class CanvasStage {
   private isDrawing: boolean = false;
   private drawStart: { x: number; y: number } | null = null;
   private onBoxesChange: (boxes: Box[]) => void;
+  private onPrevPage?: () => void;
+  private onNextPage?: () => void;
+  private pageControls: HTMLDivElement | null = null;
+  private pageIndicator: HTMLSpanElement | null = null;
+  private prevPageButton: HTMLButtonElement | null = null;
+  private nextPageButton: HTMLButtonElement | null = null;
+  private zoomLabel: HTMLSpanElement | null = null;
+  private wrapper: HTMLDivElement | null = null;
+  private fitScale = 1;
+  private lastFitScale = 1;
+  private resizeObserver?: ResizeObserver;
   private sourceImage: HTMLImageElement | HTMLCanvasElement | null = null;
 
-  constructor(onBoxesChange: (boxes: Box[]) => void) {
+  constructor(onBoxesChange: (boxes: Box[]) => void, options: CanvasStageOptions = {}) {
     this.onBoxesChange = onBoxesChange;
+    this.onPrevPage = options.onPrevPage;
+    this.onNextPage = options.onNextPage;
     this.element = this.createStage();
     this.canvas = this.element.querySelector('canvas')!;
     this.ctx = this.canvas.getContext('2d')!;
@@ -30,14 +48,53 @@ export class CanvasStage {
 
     stage.innerHTML = `
       <div class="canvas-controls">
-        <button id="zoom-in" class="btn-icon" aria-label="Zoom in">+</button>
-        <button id="zoom-out" class="btn-icon" aria-label="Zoom out">−</button>
-        <button id="zoom-reset" class="btn-icon" aria-label="Reset zoom">100%</button>
+        <div class="canvas-zoom-controls">
+          <button id="zoom-in" class="btn-icon" aria-label="Zoom in">+</button>
+          <button id="zoom-out" class="btn-icon" aria-label="Zoom out">−</button>
+          <button id="zoom-reset" class="btn-icon" aria-label="Reset zoom">100%</button>
+          <button id="zoom-fit" class="btn-icon" aria-label="Fit to screen">
+            ⤢
+          </button>
+          <span id="zoom-label" class="canvas-zoom-label" aria-live="polite">100%</span>
+        </div>
+        <div class="canvas-page-controls" style="display: none;" aria-label="Page navigation" aria-live="polite">
+          <button id="page-prev" class="btn-icon" aria-label="Previous page">
+            <span aria-hidden="true">←</span>
+          </button>
+          <span id="page-indicator">Page 1 / 1</span>
+          <button id="page-next" class="btn-icon" aria-label="Next page">
+            <span aria-hidden="true">→</span>
+          </button>
+        </div>
       </div>
       <div class="canvas-wrapper">
         <canvas></canvas>
       </div>
     `;
+
+    this.wrapper = stage.querySelector('.canvas-wrapper');
+    this.pageControls = stage.querySelector('.canvas-page-controls');
+    this.pageIndicator = stage.querySelector('#page-indicator') as HTMLSpanElement | null;
+    this.prevPageButton = stage.querySelector('#page-prev') as HTMLButtonElement | null;
+    this.nextPageButton = stage.querySelector('#page-next') as HTMLButtonElement | null;
+    this.zoomLabel = stage.querySelector('#zoom-label') as HTMLSpanElement | null;
+
+    this.prevPageButton?.addEventListener('click', () => {
+      this.onPrevPage?.();
+    });
+
+    this.nextPageButton?.addEventListener('click', () => {
+      this.onNextPage?.();
+    });
+
+    this.resizeObserver = this.wrapper
+      ? new ResizeObserver(() => {
+          this.fitToScreen();
+        })
+      : undefined;
+    if (this.wrapper && this.resizeObserver) {
+      this.resizeObserver.observe(this.wrapper);
+    }
 
     return stage;
   }
@@ -54,6 +111,9 @@ export class CanvasStage {
 
     this.element.querySelector('#zoom-reset')?.addEventListener('click', () => {
       this.setScale(1);
+    });
+    this.element.querySelector('#zoom-fit')?.addEventListener('click', () => {
+      this.fitToScreen(true);
     });
 
     // Drawing boxes
@@ -124,7 +184,8 @@ export class CanvasStage {
         y: Math.min(this.drawStart.y, y / this.scale),
         w: Math.abs(x / this.scale - this.drawStart.x),
         h: Math.abs(y / this.scale - this.drawStart.y),
-        text: 'manual'
+        text: 'manual',
+        source: 'manual'
       };
 
       if (box.w > 5 && box.h > 5) {
@@ -142,6 +203,8 @@ export class CanvasStage {
     this.sourceImage = img;
     this.canvas.width = img.width;
     this.canvas.height = img.height;
+    this.calculateFitScale();
+    this.setScale(this.fitScale);
     this.render();
   }
 
@@ -152,6 +215,21 @@ export class CanvasStage {
 
   getBoxes(): Box[] {
     return this.boxes;
+  }
+
+  setPageInfo(currentPage: number, totalPages: number) {
+    if (!this.pageIndicator || !this.pageControls || !this.prevPageButton || !this.nextPageButton) {
+      return;
+    }
+
+    const safeTotal = Math.max(1, totalPages);
+    const safeCurrent = Math.min(Math.max(currentPage, 0), safeTotal - 1);
+
+    this.pageIndicator.textContent = `Page ${safeCurrent + 1} / ${safeTotal}`;
+
+    this.pageControls.style.display = safeTotal > 1 ? 'flex' : 'none';
+    this.prevPageButton.disabled = safeCurrent === 0;
+    this.nextPageButton.disabled = safeCurrent >= safeTotal - 1;
   }
 
   private render() {
@@ -181,11 +259,46 @@ export class CanvasStage {
     // Apply scale
     this.canvas.style.transform = `scale(${this.scale})`;
     this.canvas.style.transformOrigin = 'top left';
+    this.updateZoomLabel();
   }
 
   private setScale(scale: number) {
     this.scale = Math.max(0.1, Math.min(3, scale));
     this.render();
+  }
+
+  private calculateFitScale() {
+    if (!this.wrapper || this.canvas.width === 0 || this.canvas.height === 0) {
+      return;
+    }
+    const rect = this.wrapper.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) {
+      return;
+    }
+    const scaleX = rect.width / this.canvas.width;
+    const scaleY = rect.height / this.canvas.height;
+    const nextFit = Math.min(scaleX, scaleY);
+    if (!isFinite(nextFit) || nextFit <= 0) {
+      return;
+    }
+    this.lastFitScale = this.fitScale;
+    this.fitScale = Math.min(nextFit, 2);
+  }
+
+  private fitToScreen(force: boolean = false) {
+    this.calculateFitScale();
+    if (this.fitScale <= 0) return;
+    const shouldApply = force || Math.abs(this.scale - this.lastFitScale) < 0.05 || this.scale > this.fitScale;
+    if (shouldApply) {
+      this.setScale(this.fitScale);
+    } else {
+      this.updateZoomLabel();
+    }
+  }
+
+  private updateZoomLabel() {
+    if (!this.zoomLabel) return;
+    this.zoomLabel.textContent = `${Math.round(this.scale * 100)}%`;
   }
 
   getElement(): HTMLDivElement {

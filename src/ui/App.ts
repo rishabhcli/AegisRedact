@@ -7,7 +7,7 @@ import { DropZone } from './components/DropZone';
 import { Toolbar, type ToolbarOptions } from './components/Toolbar';
 import { FileList, type FileItem } from './components/FileList';
 import { CanvasStage } from './components/CanvasStage';
-import { RedactionList } from './components/RedactionList';
+import { RedactionList, type RedactionItem } from './components/RedactionList';
 import { Toast } from './components/Toast';
 import { SuccessAnimation } from './components/SuccessAnimation';
 import { ProgressBar } from './components/ProgressBar';
@@ -23,7 +23,8 @@ import { ocrCanvas, shouldSuggestOCR } from '../lib/pdf/ocr';
 import { loadImage } from '../lib/images/exif';
 import { exportRedactedImage } from '../lib/images/redact';
 
-import { detectAllPII } from '../lib/detect/patterns';
+import { detectAllPIIWithMetadata, type DetectionOptions } from '../lib/detect/patterns';
+import type { DetectionResult } from '../lib/detect/merger';
 import { loadMLModel, isMLAvailable } from '../lib/detect/ml';
 import { saveBlob } from '../lib/fs/io';
 
@@ -48,8 +49,12 @@ export class App {
   private pdfDoc: any = null;
   private pdfBytes: ArrayBuffer | null = null; // Store original PDF bytes for export
   private currentImage: HTMLImageElement | null = null;
-  private detectedBoxes: Box[] = [];
   private pageBoxes: Map<number, Box[]> = new Map(); // Track boxes per page
+  private totalPages: number = 0;
+  private processedPages: Set<number> = new Set();
+  private documentDetections: RedactionItem[] = [];
+  private autoDetectionsByPage: Map<number, RedactionItem[]> = new Map();
+  private manualBoxesByPage: Map<number, Box[]> = new Map();
   private useML: boolean = false; // ML detection toggle
   private mlLoadPromise: Promise<boolean> | null = null;
 
@@ -73,11 +78,28 @@ export class App {
       () => this.openSettings()
     );
     this.fileList = new FileList((index) => this.handleFileSelect(index));
-    this.canvasStage = new CanvasStage((boxes) => this.handleBoxesChange(boxes));
-    this.redactionList = new RedactionList((items) => {
-      const boxes = items.filter(i => i.enabled);
-      this.canvasStage.setBoxes(boxes);
-    });
+    this.canvasStage = new CanvasStage(
+      (boxes) => this.handleBoxesChange(boxes),
+      {
+        onNextPage: () => {
+          void this.handlePageStep(1);
+        },
+        onPrevPage: () => {
+          void this.handlePageStep(-1);
+        }
+      }
+    );
+    this.canvasStage.setPageInfo(0, 1);
+    this.redactionList = new RedactionList(
+      (items) => {
+        this.handleDetectionToggles(items);
+      },
+      (item) => {
+        void this.navigateToDetection(item);
+      }
+    );
+    this.redactionList.setItems([]);
+    this.redactionList.setActivePage(0);
     this.pdfViewer = new PdfViewer(
       () => this.handlePdfDownload(),
       () => this.handlePdfViewerBack(),
@@ -304,12 +326,13 @@ export class App {
       this.pdfDoc = await loadPdf(arrayBuffer);
       console.log('loadPdf: After loading PDF, pdfBytes length:', this.pdfBytes.byteLength);
 
-      this.pageBoxes.clear(); // Clear boxes when loading new PDF
+      this.totalPages = getPageCount(this.pdfDoc);
+      this.resetDetectionMaps();
       await this.renderPdfPage(0);
-      await this.detectPII();
+      await this.detectCurrentPageDetections();
 
       // Detect PII on all pages in the background
-      const pageCount = getPageCount(this.pdfDoc);
+      const pageCount = this.totalPages;
       if (pageCount > 1) {
         this.toast.info(`Scanning ${pageCount} pages for sensitive information...`);
         await this.detectPIIOnAllPages();
@@ -339,15 +362,44 @@ export class App {
 
     // Load existing boxes for this page if they exist
     const existingBoxes = this.pageBoxes.get(pageIndex) || [];
-    this.detectedBoxes = existingBoxes;
     this.canvasStage.setBoxes(existingBoxes);
-    this.redactionList.setItems(existingBoxes);
+    this.redactionList.setActivePage(this.currentPageIndex);
+    this.canvasStage.setPageInfo(this.currentPageIndex, this.totalPages || 1);
+  }
+
+  private async handlePageStep(step: number) {
+    if (!this.pdfDoc) return;
+    await this.goToPage(this.currentPageIndex + step);
+  }
+
+  private async goToPage(pageIndex: number) {
+    if (!this.pdfDoc) return;
+
+    const pageCount = this.totalPages || getPageCount(this.pdfDoc);
+    if (pageIndex < 0 || pageIndex >= pageCount) {
+      return;
+    }
+
+    if (pageIndex === this.currentPageIndex) {
+      return;
+    }
+
+    await this.renderPdfPage(pageIndex);
+
+    if (!this.processedPages.has(pageIndex)) {
+      await this.detectCurrentPageDetections();
+    } else {
+      this.refreshCanvasForCurrentPage();
+    }
   }
 
   private async loadImage(file: File) {
     try {
       const img = await loadImage(file);
       this.currentImage = img;
+      this.totalPages = 1;
+      this.resetDetectionMaps();
+      this.canvasStage.setPageInfo(0, 1);
 
       const canvas = document.createElement('canvas');
       canvas.width = img.naturalWidth;
@@ -356,167 +408,284 @@ export class App {
       ctx.drawImage(img, 0, 0);
 
       this.canvasStage.setImage(canvas);
-
-      // For images, we could run OCR if enabled
-      const options = this.toolbar.getOptions();
-      if (options.useOCR) {
-        this.toast.info('Running OCR on image...');
-        const text = await ocrCanvas(canvas);
-        await this.detectPIIInText(text, canvas);
-      }
+      this.refreshCanvasForCurrentPage();
     } catch (error) {
       this.toast.error('Failed to load image');
       console.error(error);
     }
   }
 
-  private async detectPII() {
+  private refreshCanvasForCurrentPage() {
+    const boxes = this.pageBoxes.get(this.currentPageIndex) || [];
+    this.canvasStage.setBoxes(boxes);
+    this.redactionList.setActivePage(this.currentPageIndex);
+  }
+
+  private resetDetectionMaps() {
+    this.pageBoxes.clear();
+    this.documentDetections = [];
+    this.autoDetectionsByPage.clear();
+    this.manualBoxesByPage.clear();
+    this.processedPages.clear();
+    this.redactionList.setItems([]);
+    this.redactionList.setActivePage(0);
+    this.canvasStage.setBoxes([]);
+  }
+
+  private clearAutoDetectionsPreservingManual() {
+    this.documentDetections = [];
+    this.autoDetectionsByPage.clear();
+    this.processedPages.clear();
+    this.redactionList.setItems([]);
+    this.redactionList.setActivePage(this.currentPageIndex);
+    this.pageBoxes.clear();
+    this.manualBoxesByPage.forEach((boxes, page) => {
+      this.pageBoxes.set(
+        page,
+        boxes.map((box) => ({ ...box }))
+      );
+    });
+    this.refreshCanvasForCurrentPage();
+  }
+
+  private async detectCurrentPageDetections() {
+    if (!this.pdfDoc) return;
     const stage = this.canvasStage as any;
     const page = stage.currentPage;
     const viewport = stage.currentViewport;
 
-    if (!page || !viewport) return;
+    if (!page || !viewport) {
+      return;
+    }
 
     const options = this.toolbar.getOptions();
-    const text = await extractPageText(page);
-
-    // Check if OCR is needed
-    if (options.useOCR && (await shouldSuggestOCR(page))) {
-      this.toast.info('Running OCR (low text detected)...');
-      const canvas = this.canvasStage.getCanvas();
-      const ocrText = await ocrCanvas(canvas);
-      await this.detectPIIInText(text + ' ' + ocrText, canvas, page, viewport);
-    } else {
-      await this.detectPIIInText(text, null, page, viewport);
-    }
+    const mlReady = this.useML ? await this.ensureMLModelReady() : false;
+    const canvas = this.canvasStage.getCanvas();
+    await this.analyzePageDetections(this.currentPageIndex, page, viewport, options, mlReady, canvas);
   }
 
-  private async detectPIIInText(
-    text: string,
-    canvas: HTMLCanvasElement | null = null,
-    page: any = null,
-    viewport: any = null
+  private async analyzePageDetections(
+    pageIndex: number,
+    page: any,
+    viewport: any,
+    options: ToolbarOptions,
+    mlReady: boolean,
+    canvasForOCR?: HTMLCanvasElement
   ) {
-    console.log('=== PII Detection Start ===');
-    console.log('Text length:', text.length);
-    console.log('Text preview:', text.substring(0, 200));
+    const baseText = await extractPageText(page);
+    let combinedText = baseText;
 
-    const options = this.toolbar.getOptions();
-    console.log('Detection options:', options);
-    console.log('ML detection enabled:', this.useML);
+    if (options.useOCR && canvasForOCR && (await shouldSuggestOCR(page))) {
+      this.toast.info(`Running OCR on page ${pageIndex + 1}...`);
+      const ocrText = await ocrCanvas(canvasForOCR);
+      combinedText = `${combinedText} ${ocrText}`;
+    }
 
-    const mlReady = this.useML ? await this.ensureMLModelReady() : false;
-    console.log('ML ready for this run:', mlReady);
-
-    // Use unified detection function
-    const foundTerms = await detectAllPII(text, {
+    const detectionOptions: DetectionOptions = {
       findEmails: options.findEmails,
       findPhones: options.findPhones,
       findSSNs: options.findSSNs,
       findCards: options.findCards,
       useML: this.useML && mlReady,
       mlMinConfidence: 0.8
-    });
+    };
 
-    console.log('Total terms found:', foundTerms.length, foundTerms);
+    const detectionResults = await detectAllPIIWithMetadata(combinedText, detectionOptions);
+    const normalizedDetections: DetectionWithNormalization[] = detectionResults.map((result) => ({
+      ...result,
+      normalizedText: normalizeDetectionText(result.text),
+      digitsOnly: extractDigits(result.text)
+    }));
 
-    // Find boxes for these terms
-    let boxes: Box[] = [];
+    const boxes =
+      normalizedDetections.length === 0
+        ? []
+        : await findTextBoxes(page, viewport, (str) => doesTextMatchDetections(str, normalizedDetections));
 
-    if (page && viewport) {
-      console.log('Finding text boxes with viewport:', viewport.scale);
-      boxes = await findTextBoxes(page, viewport, (str) => {
-        // Match if the text item contains a full term OR if the text item IS the term
-        // This prevents partial matches like "2" matching "626"
-        const matches = foundTerms.some((term) => {
-          // Exact match
-          if (str === term) return true;
-          // Text contains the full term (e.g., email in a sentence)
-          if (str.includes(term)) return true;
-          // Term is longer and contains this text (for multi-word matches)
-          // But only if this text is substantial (>3 chars) to avoid false positives
-          if (str.length > 3 && term.includes(str)) return true;
-          return false;
-        });
-        if (matches) {
-          console.log('Matched text:', str, 'for term:', foundTerms.find(t => str === t || str.includes(t) || (str.length > 3 && t.includes(str))));
-        }
-        return matches;
-      });
-      console.log('Found boxes:', boxes.length, boxes);
+    const expandedBoxes = expandBoxes(boxes, 4).map((box) => ({
+      ...box,
+      page: pageIndex
+    }));
+
+    const detectionItems = this.mapBoxesToDetectionItems(pageIndex, expandedBoxes, normalizedDetections);
+    this.storeDetectionItems(pageIndex, detectionItems);
+    this.mergePageBoxes(pageIndex);
+    this.redactionList.setItems(this.documentDetections);
+    this.redactionList.setActivePage(this.currentPageIndex);
+    this.processedPages.add(pageIndex);
+
+    if (pageIndex === this.currentPageIndex) {
+      const count = detectionItems.length;
+      if (count > 0) {
+        this.toast.success(`Found ${count} potential matches`);
+      } else {
+        this.toast.info('No detections found on this page');
+      }
+    }
+  }
+
+  private storeDetectionItems(pageIndex: number, items: RedactionItem[]) {
+    if (items.length === 0) {
+      this.autoDetectionsByPage.delete(pageIndex);
     } else {
-      console.warn('No page or viewport provided for box detection');
+      this.autoDetectionsByPage.set(pageIndex, items);
     }
 
-    // Expand boxes slightly for better coverage
-    this.detectedBoxes = expandBoxes(boxes, 4);
-    console.log('Expanded boxes:', this.detectedBoxes.length);
+    this.documentDetections = [
+      ...this.documentDetections.filter((item) => item.page !== pageIndex),
+      ...items
+    ];
+  }
 
-    // Store boxes for current page
-    this.pageBoxes.set(this.currentPageIndex, this.detectedBoxes);
-    console.log('Stored boxes for page', this.currentPageIndex, '- total pages with boxes:', this.pageBoxes.size);
+  private mapBoxesToDetectionItems(
+    pageIndex: number,
+    boxes: Box[],
+    detections: DetectionWithNormalization[]
+  ): RedactionItem[] {
+    return boxes.map((box) => {
+      const detectionMeta = this.findDetectionForText(box.text, detections);
+      const id = this.createDetectionId(pageIndex, box);
+      const previous = this.documentDetections.find((item) => item.id === id);
 
-    this.redactionList.setItems(this.detectedBoxes);
-    this.canvasStage.setBoxes(this.detectedBoxes);
+      return {
+        ...box,
+        id,
+        page: pageIndex,
+        enabled: previous ? previous.enabled : true,
+        type: detectionMeta?.type ?? box.type,
+        source: (detectionMeta?.source ?? 'regex') as 'regex' | 'ml',
+        confidence: detectionMeta?.confidence ?? box.confidence
+      };
+    });
+  }
 
-    this.toast.success(`Found ${this.detectedBoxes.length} potential matches`);
-    console.log('=== PII Detection End ===');
+  private findDetectionForText(text: string, detections: DetectionWithNormalization[]) {
+    const normalized = normalizeDetectionText(text);
+    const digits = extractDigits(text);
+    if (!normalized && !digits) {
+      return undefined;
+    }
+
+    return detections.find((detection) =>
+      detectionTextsOverlap(normalized, detection.normalizedText, digits, detection.digitsOnly)
+    );
+  }
+
+  private createDetectionId(pageIndex: number, box: Box): string {
+    const normalizedText = normalizeDetectionText(box.text || '');
+    return `det-${pageIndex}-${Math.round(box.x)}-${Math.round(box.y)}-${normalizedText}`;
+  }
+
+  private mergePageBoxes(page: number) {
+    const manual = this.manualBoxesByPage.get(page) || [];
+    const detectionBoxes = (this.autoDetectionsByPage.get(page) || [])
+      .filter((item) => item.enabled)
+      .map((item) => ({
+        x: item.x,
+        y: item.y,
+        w: item.w,
+        h: item.h,
+        text: item.text,
+        page: item.page,
+        type: item.type,
+        source: item.source,
+        confidence: item.confidence,
+        detectionId: item.id
+      }));
+
+    const combined = [...detectionBoxes, ...manual];
+
+    if (combined.length === 0) {
+      this.pageBoxes.delete(page);
+    } else {
+      this.pageBoxes.set(page, combined);
+    }
+
+    if (page === this.currentPageIndex) {
+      this.canvasStage.setBoxes(combined);
+    }
+  }
+
+  private handleDetectionToggles(items: RedactionItem[]) {
+    this.documentDetections = items;
+    this.autoDetectionsByPage = this.groupDetectionsByPage(items);
+    this.refreshCombinedBoxesForAllPages();
+  }
+
+  private groupDetectionsByPage(items: RedactionItem[]): Map<number, RedactionItem[]> {
+    const grouped = new Map<number, RedactionItem[]>();
+    items.forEach((item) => {
+      const existing = grouped.get(item.page) || [];
+      existing.push(item);
+      grouped.set(item.page, existing);
+    });
+    return grouped;
+  }
+
+  private refreshCombinedBoxesForAllPages() {
+    const pages = new Set<number>();
+    this.autoDetectionsByPage.forEach((_, page) => pages.add(page));
+    this.manualBoxesByPage.forEach((_, page) => pages.add(page));
+    this.pageBoxes.forEach((_, page) => pages.add(page));
+
+    pages.forEach((page) => this.mergePageBoxes(page));
+    this.refreshCanvasForCurrentPage();
+  }
+
+  private async navigateToDetection(item: RedactionItem) {
+    if (item.page !== this.currentPageIndex) {
+      await this.goToPage(item.page);
+    } else {
+      this.refreshCanvasForCurrentPage();
+    }
+
+    this.toast.info(`Showing detection on page ${item.page + 1}`);
   }
 
   private async detectPIIOnAllPages() {
     if (!this.pdfDoc) return;
 
-    const pageCount = getPageCount(this.pdfDoc);
+    const pageCount = this.totalPages || getPageCount(this.pdfDoc);
     const options = this.toolbar.getOptions();
     const mlReady = this.useML ? await this.ensureMLModelReady() : false;
-
-    // Show progress bar for multi-page documents
     const progressBar = new ProgressBar();
-    if (pageCount > 3) {
+    const showProgress = pageCount > 3;
+
+    if (showProgress) {
       progressBar.show('Scanning pages for sensitive information...');
     }
 
-    // Process each page (skip page 0 since we already processed it)
-    for (let i = 1; i < pageCount; i++) {
-      // Update progress
-      if (pageCount > 3) {
+    for (let i = 0; i < pageCount; i++) {
+      if (i === this.currentPageIndex || this.processedPages.has(i)) {
+        continue;
+      }
+
+      if (showProgress) {
         const progress = ((i + 1) / pageCount) * 100;
         progressBar.update(progress, i + 1, pageCount);
       }
 
-      const { page, viewport } = await renderPageToCanvas(this.pdfDoc, i, 2);
-      const text = await extractPageText(page);
-
-      // Use unified detection function
-      const foundTerms = await detectAllPII(text, {
-        findEmails: options.findEmails,
-        findPhones: options.findPhones,
-        findSSNs: options.findSSNs,
-        findCards: options.findCards,
-        useML: this.useML && mlReady,
-        mlMinConfidence: 0.8
-      });
-
-      // Find and store boxes for this page
-      if (foundTerms.length > 0) {
-        const boxes = await findTextBoxes(page, viewport, (str) =>
-          foundTerms.some((term) => str.includes(term) || term.includes(str))
-        );
-        const expandedBoxes = expandBoxes(boxes, 4);
-        this.pageBoxes.set(i, expandedBoxes);
-      }
+      const { page, canvas, viewport } = await renderPageToCanvas(this.pdfDoc, i, 2);
+      await this.analyzePageDetections(i, page, viewport, options, mlReady, canvas);
     }
 
-    // Hide progress bar
-    if (pageCount > 3) {
+    if (showProgress) {
       progressBar.hide();
     }
   }
 
   private handleToolbarChange(options: ToolbarOptions) {
-    // Re-run detection with new options
     if (this.currentFileIndex >= 0) {
-      this.detectPII();
+      void this.reprocessDetections();
+    }
+  }
+
+  private async reprocessDetections() {
+    if (!this.pdfDoc) return;
+    this.clearAutoDetectionsPreservingManual();
+    await this.detectCurrentPageDetections();
+    if ((this.totalPages || 0) > 1) {
+      await this.detectPIIOnAllPages();
     }
   }
 
@@ -525,10 +694,17 @@ export class App {
   }
 
   private handleBoxesChange(boxes: Box[]) {
-    // Manual boxes added/changed
-    this.detectedBoxes = boxes;
-    // Update the page boxes map
-    this.pageBoxes.set(this.currentPageIndex, boxes);
+    const manual = boxes
+      .filter((box) => box.text === 'manual' || box.source === 'manual')
+      .map((box) => ({
+        ...box,
+        source: 'manual' as const,
+        page: this.currentPageIndex
+      }));
+
+    this.manualBoxesByPage.set(this.currentPageIndex, manual);
+    this.mergePageBoxes(this.currentPageIndex);
+    this.processedPages.add(this.currentPageIndex);
   }
 
   private async handleExport() {
@@ -570,15 +746,15 @@ export class App {
       return;
     }
 
+    const pageCount = this.totalPages || getPageCount(this.pdfDoc);
     console.log('PDF bytes length:', this.pdfBytes.byteLength);
     console.log('Pages with boxes:', Array.from(this.pageBoxes.entries()).map(([page, boxes]) => `Page ${page}: ${boxes.length} boxes`));
     console.log('Current page index:', this.currentPageIndex);
-    console.log('Total pages:', getPageCount(this.pdfDoc));
+    console.log('Total pages:', pageCount);
 
     try {
       // CRITICAL SECURITY: Rasterize pages to remove text layer completely
       // This ensures redacted information cannot be recovered
-      const pageCount = getPageCount(this.pdfDoc);
       const canvases: HTMLCanvasElement[] = [];
 
       console.log('🔥🔥🔥 SECURITY MODE: RASTERIZATION 🔥🔥🔥');
@@ -676,12 +852,10 @@ export class App {
     this.pdfDoc = null;
     this.pdfBytes = null;
     this.currentImage = null;
-    this.detectedBoxes = [];
-    this.pageBoxes.clear();
-
+    this.totalPages = 0;
+    this.resetDetectionMaps();
     this.fileList.setFiles([]);
-    this.redactionList.setItems([]);
-    this.canvasStage.setBoxes([]);
+    this.canvasStage.setPageInfo(0, 1);
 
     this.dropZone.show();
     this.canvasStage.getElement().style.display = 'none';
@@ -712,13 +886,11 @@ export class App {
       this.pdfDoc = null;
       this.pdfBytes = null;
       this.currentImage = null;
-      this.detectedBoxes = [];
-      this.pageBoxes.clear();
       this.lastExportedPdfBytes = null;
-
+      this.totalPages = 0;
+      this.resetDetectionMaps();
       this.fileList.setFiles([]);
-      this.redactionList.setItems([]);
-      this.canvasStage.setBoxes([]);
+      this.canvasStage.setPageInfo(0, 1);
 
       this.canvasStage.getElement().style.display = 'none';
       this.toolbar.enableExport(false);
@@ -857,4 +1029,63 @@ export class App {
 
 export function initApp(container: HTMLElement) {
   new App(container);
+}
+
+type DetectionWithNormalization = DetectionResult & {
+  normalizedText: string;
+  digitsOnly: string;
+};
+
+function normalizeDetectionText(value: string | undefined): string {
+  if (!value) {
+    return '';
+  }
+
+  return value
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[\s\u00A0]+/g, '')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '');
+}
+
+function extractDigits(value: string | undefined): string {
+  if (!value) return '';
+  return value.replace(/\D/g, '');
+}
+
+function detectionTextsOverlap(
+  normalizedCandidate: string,
+  normalizedTarget: string,
+  candidateDigits: string,
+  targetDigits: string
+): boolean {
+  if (normalizedCandidate && normalizedTarget) {
+    if (normalizedCandidate === normalizedTarget) {
+      return true;
+    }
+
+    if (normalizedCandidate.length > 3 && normalizedTarget.includes(normalizedCandidate)) {
+      return true;
+    }
+
+    if (normalizedTarget.length > 3 && normalizedCandidate.includes(normalizedTarget)) {
+      return true;
+    }
+  }
+
+  if (candidateDigits && targetDigits && candidateDigits.length >= 4 && candidateDigits === targetDigits) {
+    return true;
+  }
+
+  return false;
+}
+
+function doesTextMatchDetections(text: string, detections: DetectionWithNormalization[]): boolean {
+  const normalized = normalizeDetectionText(text);
+  const digits = extractDigits(text);
+  if (!normalized && !digits) return false;
+
+  return detections.some((detection) =>
+    detectionTextsOverlap(normalized, detection.normalizedText, digits, detection.digitsOnly)
+  );
 }
