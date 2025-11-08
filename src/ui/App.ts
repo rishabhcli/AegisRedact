@@ -14,6 +14,11 @@ import { ProgressBar } from './components/ProgressBar';
 import { PdfViewer } from './components/PdfViewer';
 import { Settings } from './components/Settings';
 import { MLDownloadPrompt } from './components/MLDownloadPrompt';
+import { AuthSession } from '../lib/auth/session.js';
+import { CloudSyncService } from '../lib/cloud/sync.js';
+import { AuthModal } from './components/auth/AuthModal.js';
+import { UserMenu } from './components/auth/UserMenu.js';
+import { Dashboard } from './components/Dashboard.js';
 
 import { loadPdf, renderPageToCanvas, getPageCount } from '../lib/pdf/load';
 import { findTextBoxes, extractPageText } from '../lib/pdf/find';
@@ -45,6 +50,9 @@ export class App {
   private toast: Toast;
   private pdfViewer: PdfViewer;
   private lastExportedPdfBytes: Uint8Array | null = null;
+  private authSession: AuthSession;
+  private cloudSync: CloudSyncService | null = null;
+  private userMenu: UserMenu | null = null;
 
   private files: FileItem[] = [];
   private currentFileIndex: number = -1;
@@ -71,6 +79,10 @@ export class App {
     // Create enhanced landing page with all immersive features
     this.landingPage = new LandingPageEnhanced(() => this.showApp());
 
+    // Initialize auth session (use environment variable for API URL)
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    this.authSession = new AuthSession(apiUrl);
+
     // Create app components
     this.dropZone = new DropZone((files) => this.handleFiles(files));
     this.toolbar = new Toolbar(
@@ -78,8 +90,18 @@ export class App {
       () => this.handleExport(),
       () => this.handleReset(),
       () => this.handleNewFile(),
-      () => this.openSettings()
+      () => this.openSettings(),
+      () => this.handleShowAuth(),
+      () => this.handleShowDashboard()
     );
+
+    // Check if user is logged in and initialize cloud sync
+    if (this.authSession.isAuthenticated()) {
+      this.initializeCloudSync();
+    } else {
+      this.toolbar.showLoginButton();
+    }
+
     this.fileList = new FileList((index) => this.handleFileSelect(index));
     this.canvasStage = new CanvasStage(
       (boxes) => this.handleBoxesChange(boxes),
@@ -1168,6 +1190,121 @@ export class App {
     );
 
     settings.show();
+  }
+
+  /**
+   * Initialize cloud sync after authentication
+   */
+  private initializeCloudSync(): void {
+    const user = this.authSession.getUser();
+    if (!user) return;
+
+    this.cloudSync = new CloudSyncService(this.authSession);
+
+    // Show user menu
+    this.userMenu = new UserMenu(
+      user,
+      () => void this.handleLogout(),
+      () => this.handleShowDashboard()
+    );
+
+    this.toolbar.showUserMenu(this.userMenu.getElement());
+  }
+
+  /**
+   * Show authentication modal
+   */
+  private handleShowAuth(): void {
+    const modal = new AuthModal(
+      () => modal.hide(),
+      async (email, password) => {
+        try {
+          await this.authSession.login(email, password);
+          modal.hide();
+          this.initializeCloudSync();
+          this.toast.success('Signed in successfully!');
+        } catch (error) {
+          throw error; // Let modal handle display
+        }
+      },
+      async (email, password) => {
+        try {
+          await this.authSession.register(email, password);
+          modal.hide();
+          this.initializeCloudSync();
+          this.toast.success('Account created successfully!');
+        } catch (error) {
+          throw error; // Let modal handle display
+        }
+      }
+    );
+
+    modal.show();
+  }
+
+  /**
+   * Handle user logout
+   */
+  private async handleLogout(): Promise<void> {
+    try {
+      await this.authSession.logout();
+      this.cloudSync = null;
+      this.userMenu = null;
+      this.toolbar.showLoginButton();
+      this.toast.info('Signed out');
+    } catch (error) {
+      console.error('Logout error:', error);
+      this.toast.error('Logout failed');
+    }
+  }
+
+  /**
+   * Show cloud file dashboard
+   */
+  private handleShowDashboard(): void {
+    if (!this.cloudSync) {
+      this.toast.error('Cloud sync not initialized');
+      return;
+    }
+
+    const dashboard = new Dashboard(
+      () => dashboard.hide(),
+      async (fileId) => {
+        // Download file
+        try {
+          const { data, filename } = await this.cloudSync!.downloadFile(fileId);
+          const blob = new Blob([data], { type: 'application/pdf' });
+          await saveBlob(blob, filename);
+          this.toast.success('File downloaded!');
+        } catch (error) {
+          console.error('Download error:', error);
+          this.toast.error('Download failed');
+        }
+      },
+      async (fileId) => {
+        // Delete file
+        try {
+          await this.cloudSync!.deleteFile(fileId);
+          this.toast.success('File deleted');
+        } catch (error) {
+          console.error('Delete error:', error);
+          this.toast.error('Delete failed');
+        }
+      },
+      async () => {
+        // Refresh file list
+        try {
+          return await this.cloudSync!.listFiles();
+        } catch (error) {
+          console.error('List files error:', error);
+          this.toast.error('Failed to load files');
+          return [];
+        }
+      },
+      this.authSession
+    );
+
+    dashboard.show();
   }
 
   private async handlePdfDownload() {

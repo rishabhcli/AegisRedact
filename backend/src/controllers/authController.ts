@@ -9,6 +9,7 @@ import { RefreshTokenModel } from '../models/RefreshToken.js';
 import { JWTService } from '../services/jwt.js';
 import { env } from '../config/env.js';
 import type { AuthRequest } from '../middleware/auth.js';
+import { validatePasswordStrength } from '../utils/passwordValidator.js';
 
 // Validation schemas
 const registerSchema = z.object({
@@ -31,6 +32,16 @@ const refreshSchema = z.object({
 export async function register(req: Request, res: Response) {
   try {
     const { email, password } = registerSchema.parse(req.body);
+
+    // Validate password strength
+    const passwordValidation = validatePasswordStrength(password);
+    if (!passwordValidation.isValid) {
+      return res.status(400).json({
+        error: passwordValidation.errors[0],
+        strength: passwordValidation.strength,
+        allErrors: passwordValidation.errors,
+      });
+    }
 
     // Check if user already exists
     const existingUser = await UserModel.findByEmail(email);

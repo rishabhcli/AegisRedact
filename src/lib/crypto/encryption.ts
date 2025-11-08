@@ -34,7 +34,7 @@ async function deriveEncryptionKey(
     {
       name: 'PBKDF2',
       salt: salt,
-      iterations: 100000,
+      iterations: 600000, // OWASP 2023 recommendation (increased from 100,000)
       hash: 'SHA-256',
     },
     passwordKey,
@@ -73,7 +73,7 @@ export async function encryptFile(
       salt: userSalt,
       algorithm: 'AES-GCM',
       keyDerivation: 'PBKDF2',
-      iterations: 100000,
+      iterations: 600000,
     },
   };
 }

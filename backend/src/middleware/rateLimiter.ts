@@ -20,6 +20,8 @@ export const apiLimiter = rateLimit({
 
 /**
  * Strict rate limiter for login attempts
+ * Security: Count ALL login attempts (including successful ones) to prevent
+ * credential stuffing attacks where attackers try different accounts
  */
 export const loginLimiter = rateLimit({
   windowMs: env.RATE_LIMIT_WINDOW_MS,
@@ -29,7 +31,7 @@ export const loginLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skipSuccessfulRequests: true, // Don't count successful logins
+  // Removed skipSuccessfulRequests to prevent credential stuffing
 });
 
 /**
