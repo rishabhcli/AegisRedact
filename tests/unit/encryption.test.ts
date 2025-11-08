@@ -19,7 +19,7 @@ describe('File Encryption', () => {
     expect(encrypted.metadata.iv).toBeDefined();
     expect(encrypted.metadata.algorithm).toBe('AES-GCM');
     expect(encrypted.metadata.keyDerivation).toBe('PBKDF2');
-    expect(encrypted.metadata.iterations).toBe(100000);
+    expect(encrypted.metadata.iterations).toBe(600000);
 
     // Decrypt
     const decrypted = await decryptFile(

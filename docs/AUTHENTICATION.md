@@ -27,7 +27,7 @@ User ← Decrypt in Browser ← Download Encrypted ← Retrieve Encrypted
 1. User registers/logs in with password
 2. Browser derives encryption key using PBKDF2:
    - Password + User Salt (from server)
-   - 100,000 iterations
+   - 600,000 iterations (OWASP 2023 compliant)
    - SHA-256 hash
    - Outputs AES-256 key
 
@@ -62,9 +62,14 @@ User ← Decrypt in Browser ← Download Encrypted ← Retrieve Encrypted
 
 ### Password Security
 
-- Minimum 12 characters required
-- Hashed with bcrypt (cost factor 12)
-- Never logged or transmitted in plain text
+- **Minimum 12 characters** required
+- **Password strength validation**:
+  - Checks against 100+ common passwords
+  - Requires 3 of 4 character types (lowercase, uppercase, numbers, special)
+  - Detects sequential and repetitive patterns
+- **bcrypt hashing** (cost factor 12)
+- **Never logged or transmitted** in plain text
+- **PBKDF2 key derivation**: 600,000 iterations (OWASP 2023 compliant)
 - Password resets use time-limited tokens
 
 ### Rate Limiting

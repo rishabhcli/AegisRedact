@@ -8,10 +8,14 @@ import { FileModel } from '../models/File.js';
 import { UserModel } from '../models/User.js';
 import type { AuthRequest } from '../middleware/auth.js';
 import { StorageService } from '../services/storage.js';
+import { sanitizeFilename, isValidFilename } from '../utils/sanitizer.js';
 
 // Validation schemas
 const uploadSchema = z.object({
-  filename: z.string().min(1).max(255),
+  filename: z.string().min(1).max(255).refine(
+    (filename) => isValidFilename(filename),
+    'Invalid filename: must not contain path separators or special characters'
+  ),
   fileSize: z.number().int().positive().max(50 * 1024 * 1024), // 50MB max
   encryptionMetadata: z.object({
     iv: z.string(),
@@ -56,6 +60,9 @@ export async function requestUpload(req: AuthRequest, res: Response) {
 
     const { filename, fileSize, encryptionMetadata, mimeType } = uploadSchema.parse(req.body);
 
+    // Sanitize filename for additional security
+    const sanitizedFilename = sanitizeFilename(filename);
+
     // Check storage quota
     const storage = await UserModel.getStorageUsage(req.user.userId);
     if (storage.used + fileSize > storage.quota) {
@@ -70,7 +77,7 @@ export async function requestUpload(req: AuthRequest, res: Response) {
     const storageService = new StorageService();
     const { uploadUrl, storageKey, fileId } = await storageService.getUploadUrl(
       req.user.userId,
-      filename,
+      sanitizedFilename,
       fileSize,
       encryptionMetadata,
       mimeType

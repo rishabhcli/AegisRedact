@@ -20,13 +20,17 @@ export class Toolbar {
   private onReset: () => void;
   private onNewFile: () => void;
   private onSettings: () => void;
+  private onShowAuth: (() => void) | null = null;
+  private onShowDashboard: (() => void) | null = null;
 
   constructor(
     onChange: (options: ToolbarOptions) => void,
     onExport: () => void,
     onReset: () => void,
     onNewFile: () => void,
-    onSettings: () => void
+    onSettings: () => void,
+    onShowAuth?: () => void,
+    onShowDashboard?: () => void
   ) {
     this.options = {
       findEmails: true,
@@ -42,6 +46,8 @@ export class Toolbar {
     this.onReset = onReset;
     this.onNewFile = onNewFile;
     this.onSettings = onSettings;
+    this.onShowAuth = onShowAuth || null;
+    this.onShowDashboard = onShowDashboard || null;
     this.element = this.createToolbar();
   }
 
@@ -112,6 +118,9 @@ export class Toolbar {
           <span>Settings</span>
         </button>
       </div>
+      <div class="toolbar-auth" style="margin-top: 16px;">
+        <div class="auth-container"></div>
+      </div>
     `;
 
     // Wire up event listeners
@@ -174,6 +183,45 @@ export class Toolbar {
     const newFileBtn = this.element.querySelector('#btn-new-file') as HTMLButtonElement;
     if (newFileBtn) {
       newFileBtn.style.display = show ? 'block' : 'none';
+    }
+  }
+
+  /**
+   * Show login button for unauthenticated users
+   */
+  showLoginButton(): void {
+    const container = this.element.querySelector('.auth-container');
+    if (container) {
+      container.innerHTML = `
+        <button class="login-button" style="width: 100%; padding: 0.75rem; background: linear-gradient(135deg, var(--primary-color), #667eea); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: transform 0.2s, box-shadow 0.2s;" aria-label="Sign in to cloud storage">
+          <svg style="width: 18px; height: 18px; vertical-align: middle; margin-right: 8px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          <span style="vertical-align: middle;">Sign In</span>
+        </button>
+      `;
+      const button = container.querySelector('.login-button') as HTMLButtonElement;
+      button?.addEventListener('click', () => this.onShowAuth?.());
+      button?.addEventListener('mouseenter', () => {
+        button.style.transform = 'translateY(-2px)';
+        button.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+      });
+      button?.addEventListener('mouseleave', () => {
+        button.style.transform = 'translateY(0)';
+        button.style.boxShadow = 'none';
+      });
+    }
+  }
+
+  /**
+   * Show user menu for authenticated users
+   */
+  showUserMenu(userMenuElement: HTMLElement): void {
+    const container = this.element.querySelector('.auth-container');
+    if (container) {
+      container.innerHTML = '';
+      container.appendChild(userMenuElement);
     }
   }
 }

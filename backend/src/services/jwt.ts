@@ -21,6 +21,7 @@ export class JWTService {
    */
   static generateAccessToken(payload: AccessTokenPayload): string {
     return jwt.sign(payload, env.JWT_ACCESS_SECRET, {
+      algorithm: 'HS256', // Explicitly set algorithm to prevent confusion attacks
       expiresIn: env.JWT_ACCESS_EXPIRES_IN,
     });
   }
@@ -30,6 +31,7 @@ export class JWTService {
    */
   static generateRefreshToken(payload: RefreshTokenPayload): string {
     return jwt.sign(payload, env.JWT_REFRESH_SECRET, {
+      algorithm: 'HS256', // Explicitly set algorithm to prevent confusion attacks
       expiresIn: env.JWT_REFRESH_EXPIRES_IN,
     });
   }
@@ -39,7 +41,9 @@ export class JWTService {
    */
   static verifyAccessToken(token: string): AccessTokenPayload {
     try {
-      return jwt.verify(token, env.JWT_ACCESS_SECRET) as AccessTokenPayload;
+      return jwt.verify(token, env.JWT_ACCESS_SECRET, {
+        algorithms: ['HS256'], // Only accept HS256 to prevent algorithm confusion attacks
+      }) as AccessTokenPayload;
     } catch (error) {
       throw new Error('Invalid or expired access token');
     }
@@ -50,7 +54,9 @@ export class JWTService {
    */
   static verifyRefreshToken(token: string): RefreshTokenPayload {
     try {
-      return jwt.verify(token, env.JWT_REFRESH_SECRET) as RefreshTokenPayload;
+      return jwt.verify(token, env.JWT_REFRESH_SECRET, {
+        algorithms: ['HS256'], // Only accept HS256 to prevent algorithm confusion attacks
+      }) as RefreshTokenPayload;
     } catch (error) {
       throw new Error('Invalid or expired refresh token');
     }
