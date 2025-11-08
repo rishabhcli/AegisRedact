@@ -227,9 +227,21 @@ export class Settings {
       // Unload model
       await mlDetector.unload();
 
-      // Clear cache (transformers.js uses browser cache)
-      // We'll rely on browser cache management for now
-      // TODO: Implement explicit cache clearing if needed
+      // Clear browser cache (transformers.js uses Cache API)
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        console.log('[Settings] Found caches:', cacheNames);
+
+        // Delete all caches (transformers.js may use various cache names)
+        // This ensures complete cleanup of downloaded model files
+        const deletePromises = cacheNames.map(cacheName => {
+          console.log('[Settings] Deleting cache:', cacheName);
+          return caches.delete(cacheName);
+        });
+
+        await Promise.all(deletePromises);
+        console.log('[Settings] All caches cleared');
+      }
 
       clearBtn.textContent = 'Cache Cleared';
       setTimeout(() => {
