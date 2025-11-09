@@ -8,6 +8,41 @@ import {
   type DetectionResult
 } from './merger';
 import { hybridDetection } from './hybrid';
+import {
+  findSWIFTCodes,
+  findRoutingNumbers,
+  findCLABE,
+  findIBANs,
+  findAccountNumbers as findFinancialAccounts
+} from './patterns-financial';
+import {
+  findAllCryptoAddresses
+} from './patterns-crypto';
+import {
+  findStockTickers,
+  findCUSIPs,
+  findISINs,
+  findBrokerageAccounts
+} from './patterns-investment';
+import {
+  findVATNumbers,
+  findEuropeanIDs
+} from './patterns-european';
+import {
+  findChineseIDs,
+  findMyNumbers,
+  findAadhaarNumbers,
+  findTaiwaneseIDs,
+  findSingaporeNRICs,
+  findKoreanRRNs,
+  findThaiIDs,
+  findMalaysianNRICs
+} from './patterns-asian';
+import {
+  findCPFs,
+  findCURPs,
+  findRUTs
+} from './patterns-latam';
 
 /**
  * PII Detection patterns
@@ -186,6 +221,14 @@ export interface DetectionOptions {
   findAddresses: boolean;
   useML: boolean;
   mlMinConfidence?: number;
+  // Financial data
+  findBankAccounts?: boolean;
+  findCrypto?: boolean;
+  findInvestments?: boolean;
+  // International PII
+  findEuropeanIDs?: boolean;
+  findAsianIDs?: boolean;
+  findLatAmIDs?: boolean;
 }
 
 /**
@@ -232,6 +275,77 @@ export async function detectAllPII(
   if (options.findAddresses) {
     const addresses = findAddresses(text);
     regexResults.push(...createRegexDetections(addresses, 'address'));
+  }
+
+  // Financial data detection
+  if (options.findBankAccounts) {
+    const swiftCodes = findSWIFTCodes(text);
+    const routingNumbers = findRoutingNumbers(text);
+    const clabe = findCLABE(text);
+    const ibans = findIBANs(text);
+    const accounts = findFinancialAccounts(text);
+
+    regexResults.push(...createRegexDetections(swiftCodes, 'swift'));
+    regexResults.push(...createRegexDetections(routingNumbers, 'routing'));
+    regexResults.push(...createRegexDetections(clabe, 'clabe'));
+    regexResults.push(...createRegexDetections(ibans, 'iban'));
+    regexResults.push(...createRegexDetections(accounts, 'account'));
+  }
+
+  if (options.findCrypto) {
+    const cryptoAddresses = findAllCryptoAddresses(text);
+    regexResults.push(...createRegexDetections(cryptoAddresses, 'crypto'));
+  }
+
+  if (options.findInvestments) {
+    const tickers = findStockTickers(text);
+    const cusips = findCUSIPs(text);
+    const isins = findISINs(text);
+    const brokerageAccounts = findBrokerageAccounts(text);
+
+    regexResults.push(...createRegexDetections(tickers, 'ticker'));
+    regexResults.push(...createRegexDetections(cusips, 'cusip'));
+    regexResults.push(...createRegexDetections(isins, 'isin'));
+    regexResults.push(...createRegexDetections(brokerageAccounts, 'brokerage'));
+  }
+
+  // International PII detection
+  if (options.findEuropeanIDs) {
+    const vatNumbers = findVATNumbers(text);
+    const europeanIDs = findEuropeanIDs(text);
+
+    regexResults.push(...createRegexDetections(vatNumbers, 'vat'));
+    regexResults.push(...createRegexDetections(europeanIDs, 'eu-id'));
+  }
+
+  if (options.findAsianIDs) {
+    const chineseIDs = findChineseIDs(text);
+    const myNumbers = findMyNumbers(text);
+    const aadhaar = findAadhaarNumbers(text);
+    const taiwaneseIDs = findTaiwaneseIDs(text);
+    const singaporeNRICs = findSingaporeNRICs(text);
+    const koreanRRNs = findKoreanRRNs(text);
+    const thaiIDs = findThaiIDs(text);
+    const malaysianNRICs = findMalaysianNRICs(text);
+
+    regexResults.push(...createRegexDetections(chineseIDs, 'cn-id'));
+    regexResults.push(...createRegexDetections(myNumbers, 'jp-mynumber'));
+    regexResults.push(...createRegexDetections(aadhaar, 'in-aadhaar'));
+    regexResults.push(...createRegexDetections(taiwaneseIDs, 'tw-id'));
+    regexResults.push(...createRegexDetections(singaporeNRICs, 'sg-nric'));
+    regexResults.push(...createRegexDetections(koreanRRNs, 'kr-rrn'));
+    regexResults.push(...createRegexDetections(thaiIDs, 'th-id'));
+    regexResults.push(...createRegexDetections(malaysianNRICs, 'my-nric'));
+  }
+
+  if (options.findLatAmIDs) {
+    const cpfs = findCPFs(text);
+    const curps = findCURPs(text);
+    const ruts = findRUTs(text);
+
+    regexResults.push(...createRegexDetections(cpfs, 'br-cpf'));
+    regexResults.push(...createRegexDetections(curps, 'mx-curp'));
+    regexResults.push(...createRegexDetections(ruts, 'cl-rut'));
   }
 
   // Run ML detection if enabled and available
@@ -295,6 +409,77 @@ export async function detectAllPIIWithMetadata(
     regexResults.push(...createRegexDetections(addresses, 'address'));
   }
 
+  // Financial data detection
+  if (options.findBankAccounts) {
+    const swiftCodes = findSWIFTCodes(text);
+    const routingNumbers = findRoutingNumbers(text);
+    const clabe = findCLABE(text);
+    const ibans = findIBANs(text);
+    const accounts = findFinancialAccounts(text);
+
+    regexResults.push(...createRegexDetections(swiftCodes, 'swift'));
+    regexResults.push(...createRegexDetections(routingNumbers, 'routing'));
+    regexResults.push(...createRegexDetections(clabe, 'clabe'));
+    regexResults.push(...createRegexDetections(ibans, 'iban'));
+    regexResults.push(...createRegexDetections(accounts, 'account'));
+  }
+
+  if (options.findCrypto) {
+    const cryptoAddresses = findAllCryptoAddresses(text);
+    regexResults.push(...createRegexDetections(cryptoAddresses, 'crypto'));
+  }
+
+  if (options.findInvestments) {
+    const tickers = findStockTickers(text);
+    const cusips = findCUSIPs(text);
+    const isins = findISINs(text);
+    const brokerageAccounts = findBrokerageAccounts(text);
+
+    regexResults.push(...createRegexDetections(tickers, 'ticker'));
+    regexResults.push(...createRegexDetections(cusips, 'cusip'));
+    regexResults.push(...createRegexDetections(isins, 'isin'));
+    regexResults.push(...createRegexDetections(brokerageAccounts, 'brokerage'));
+  }
+
+  // International PII detection
+  if (options.findEuropeanIDs) {
+    const vatNumbers = findVATNumbers(text);
+    const europeanIDs = findEuropeanIDs(text);
+
+    regexResults.push(...createRegexDetections(vatNumbers, 'vat'));
+    regexResults.push(...createRegexDetections(europeanIDs, 'eu-id'));
+  }
+
+  if (options.findAsianIDs) {
+    const chineseIDs = findChineseIDs(text);
+    const myNumbers = findMyNumbers(text);
+    const aadhaar = findAadhaarNumbers(text);
+    const taiwaneseIDs = findTaiwaneseIDs(text);
+    const singaporeNRICs = findSingaporeNRICs(text);
+    const koreanRRNs = findKoreanRRNs(text);
+    const thaiIDs = findThaiIDs(text);
+    const malaysianNRICs = findMalaysianNRICs(text);
+
+    regexResults.push(...createRegexDetections(chineseIDs, 'cn-id'));
+    regexResults.push(...createRegexDetections(myNumbers, 'jp-mynumber'));
+    regexResults.push(...createRegexDetections(aadhaar, 'in-aadhaar'));
+    regexResults.push(...createRegexDetections(taiwaneseIDs, 'tw-id'));
+    regexResults.push(...createRegexDetections(singaporeNRICs, 'sg-nric'));
+    regexResults.push(...createRegexDetections(koreanRRNs, 'kr-rrn'));
+    regexResults.push(...createRegexDetections(thaiIDs, 'th-id'));
+    regexResults.push(...createRegexDetections(malaysianNRICs, 'my-nric'));
+  }
+
+  if (options.findLatAmIDs) {
+    const cpfs = findCPFs(text);
+    const curps = findCURPs(text);
+    const ruts = findRUTs(text);
+
+    regexResults.push(...createRegexDetections(cpfs, 'br-cpf'));
+    regexResults.push(...createRegexDetections(curps, 'mx-curp'));
+    regexResults.push(...createRegexDetections(ruts, 'cl-rut'));
+  }
+
   // Run ML detection if enabled and available
   if (options.useML && isMLAvailable()) {
     try {
@@ -344,6 +529,24 @@ export async function detectAllPIIEnhanced(
   if (options.findCards) {
     const cards = findLikelyPANs(text);
     regexResults.push(...createRegexDetections(cards, 'card'));
+  }
+
+  // Financial data detection
+  if (options.findBankAccounts) {
+    const swiftCodes = findSWIFTCodes(text);
+    const routingNumbers = findRoutingNumbers(text);
+    const clabe = findCLABE(text);
+    const ibans = findIBANs(text);
+
+    regexResults.push(...createRegexDetections(swiftCodes, 'swift'));
+    regexResults.push(...createRegexDetections(routingNumbers, 'routing'));
+    regexResults.push(...createRegexDetections(clabe, 'clabe'));
+    regexResults.push(...createRegexDetections(ibans, 'iban'));
+  }
+
+  if (options.findCrypto) {
+    const cryptoAddresses = findAllCryptoAddresses(text);
+    regexResults.push(...createRegexDetections(cryptoAddresses, 'crypto'));
   }
 
   // Add positions to regex results by finding them in text
@@ -419,6 +622,24 @@ export async function detectAllPIIEnhancedWithMetadata(
   if (options.findCards) {
     const cards = findLikelyPANs(text);
     regexResults.push(...createRegexDetections(cards, 'card'));
+  }
+
+  // Financial data detection
+  if (options.findBankAccounts) {
+    const swiftCodes = findSWIFTCodes(text);
+    const routingNumbers = findRoutingNumbers(text);
+    const clabe = findCLABE(text);
+    const ibans = findIBANs(text);
+
+    regexResults.push(...createRegexDetections(swiftCodes, 'swift'));
+    regexResults.push(...createRegexDetections(routingNumbers, 'routing'));
+    regexResults.push(...createRegexDetections(clabe, 'clabe'));
+    regexResults.push(...createRegexDetections(ibans, 'iban'));
+  }
+
+  if (options.findCrypto) {
+    const cryptoAddresses = findAllCryptoAddresses(text);
+    regexResults.push(...createRegexDetections(cryptoAddresses, 'crypto'));
   }
 
   // Add positions
