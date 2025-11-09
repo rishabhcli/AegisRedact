@@ -8,6 +8,22 @@ import {
   type DetectionResult
 } from './merger';
 import { hybridDetection } from './hybrid';
+import {
+  findSWIFTCodes,
+  findRoutingNumbers,
+  findCLABE,
+  findIBANs,
+  findAccountNumbers as findFinancialAccounts
+} from './patterns-financial';
+import {
+  findAllCryptoAddresses
+} from './patterns-crypto';
+import {
+  findStockTickers,
+  findCUSIPs,
+  findISINs,
+  findBrokerageAccounts
+} from './patterns-investment';
 
 /**
  * PII Detection patterns
@@ -186,6 +202,10 @@ export interface DetectionOptions {
   findAddresses: boolean;
   useML: boolean;
   mlMinConfidence?: number;
+  // Financial data
+  findBankAccounts?: boolean;
+  findCrypto?: boolean;
+  findInvestments?: boolean;
 }
 
 /**
@@ -232,6 +252,38 @@ export async function detectAllPII(
   if (options.findAddresses) {
     const addresses = findAddresses(text);
     regexResults.push(...createRegexDetections(addresses, 'address'));
+  }
+
+  // Financial data detection
+  if (options.findBankAccounts) {
+    const swiftCodes = findSWIFTCodes(text);
+    const routingNumbers = findRoutingNumbers(text);
+    const clabe = findCLABE(text);
+    const ibans = findIBANs(text);
+    const accounts = findFinancialAccounts(text);
+
+    regexResults.push(...createRegexDetections(swiftCodes, 'swift'));
+    regexResults.push(...createRegexDetections(routingNumbers, 'routing'));
+    regexResults.push(...createRegexDetections(clabe, 'clabe'));
+    regexResults.push(...createRegexDetections(ibans, 'iban'));
+    regexResults.push(...createRegexDetections(accounts, 'account'));
+  }
+
+  if (options.findCrypto) {
+    const cryptoAddresses = findAllCryptoAddresses(text);
+    regexResults.push(...createRegexDetections(cryptoAddresses, 'crypto'));
+  }
+
+  if (options.findInvestments) {
+    const tickers = findStockTickers(text);
+    const cusips = findCUSIPs(text);
+    const isins = findISINs(text);
+    const brokerageAccounts = findBrokerageAccounts(text);
+
+    regexResults.push(...createRegexDetections(tickers, 'ticker'));
+    regexResults.push(...createRegexDetections(cusips, 'cusip'));
+    regexResults.push(...createRegexDetections(isins, 'isin'));
+    regexResults.push(...createRegexDetections(brokerageAccounts, 'brokerage'));
   }
 
   // Run ML detection if enabled and available
@@ -295,6 +347,38 @@ export async function detectAllPIIWithMetadata(
     regexResults.push(...createRegexDetections(addresses, 'address'));
   }
 
+  // Financial data detection
+  if (options.findBankAccounts) {
+    const swiftCodes = findSWIFTCodes(text);
+    const routingNumbers = findRoutingNumbers(text);
+    const clabe = findCLABE(text);
+    const ibans = findIBANs(text);
+    const accounts = findFinancialAccounts(text);
+
+    regexResults.push(...createRegexDetections(swiftCodes, 'swift'));
+    regexResults.push(...createRegexDetections(routingNumbers, 'routing'));
+    regexResults.push(...createRegexDetections(clabe, 'clabe'));
+    regexResults.push(...createRegexDetections(ibans, 'iban'));
+    regexResults.push(...createRegexDetections(accounts, 'account'));
+  }
+
+  if (options.findCrypto) {
+    const cryptoAddresses = findAllCryptoAddresses(text);
+    regexResults.push(...createRegexDetections(cryptoAddresses, 'crypto'));
+  }
+
+  if (options.findInvestments) {
+    const tickers = findStockTickers(text);
+    const cusips = findCUSIPs(text);
+    const isins = findISINs(text);
+    const brokerageAccounts = findBrokerageAccounts(text);
+
+    regexResults.push(...createRegexDetections(tickers, 'ticker'));
+    regexResults.push(...createRegexDetections(cusips, 'cusip'));
+    regexResults.push(...createRegexDetections(isins, 'isin'));
+    regexResults.push(...createRegexDetections(brokerageAccounts, 'brokerage'));
+  }
+
   // Run ML detection if enabled and available
   if (options.useML && isMLAvailable()) {
     try {
@@ -344,6 +428,24 @@ export async function detectAllPIIEnhanced(
   if (options.findCards) {
     const cards = findLikelyPANs(text);
     regexResults.push(...createRegexDetections(cards, 'card'));
+  }
+
+  // Financial data detection
+  if (options.findBankAccounts) {
+    const swiftCodes = findSWIFTCodes(text);
+    const routingNumbers = findRoutingNumbers(text);
+    const clabe = findCLABE(text);
+    const ibans = findIBANs(text);
+
+    regexResults.push(...createRegexDetections(swiftCodes, 'swift'));
+    regexResults.push(...createRegexDetections(routingNumbers, 'routing'));
+    regexResults.push(...createRegexDetections(clabe, 'clabe'));
+    regexResults.push(...createRegexDetections(ibans, 'iban'));
+  }
+
+  if (options.findCrypto) {
+    const cryptoAddresses = findAllCryptoAddresses(text);
+    regexResults.push(...createRegexDetections(cryptoAddresses, 'crypto'));
   }
 
   // Add positions to regex results by finding them in text
@@ -419,6 +521,24 @@ export async function detectAllPIIEnhancedWithMetadata(
   if (options.findCards) {
     const cards = findLikelyPANs(text);
     regexResults.push(...createRegexDetections(cards, 'card'));
+  }
+
+  // Financial data detection
+  if (options.findBankAccounts) {
+    const swiftCodes = findSWIFTCodes(text);
+    const routingNumbers = findRoutingNumbers(text);
+    const clabe = findCLABE(text);
+    const ibans = findIBANs(text);
+
+    regexResults.push(...createRegexDetections(swiftCodes, 'swift'));
+    regexResults.push(...createRegexDetections(routingNumbers, 'routing'));
+    regexResults.push(...createRegexDetections(clabe, 'clabe'));
+    regexResults.push(...createRegexDetections(ibans, 'iban'));
+  }
+
+  if (options.findCrypto) {
+    const cryptoAddresses = findAllCryptoAddresses(text);
+    regexResults.push(...createRegexDetections(cryptoAddresses, 'crypto'));
   }
 
   // Add positions
