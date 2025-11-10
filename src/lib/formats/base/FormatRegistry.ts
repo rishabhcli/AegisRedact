@@ -1,6 +1,22 @@
 /**
  * Format registry for detecting and instantiating document format handlers
- * Uses factory pattern to create appropriate format instances
+ *
+ * Central registry that manages all supported document formats. Uses lazy loading
+ * to minimize initial bundle size by only importing format handlers when needed.
+ *
+ * @module formats/base/FormatRegistry
+ *
+ * @example
+ * ```typescript
+ * // Detect and get format handler for a file
+ * const format = await FormatRegistry.getFormat(file);
+ *
+ * // Check if file is supported
+ * const isSupported = await FormatRegistry.isSupported(file);
+ *
+ * // Get list of supported formats
+ * const formats = await FormatRegistry.getSupportedFormats();
+ * ```
  */
 
 import type { DocumentFormat } from './DocumentFormat';
@@ -8,6 +24,11 @@ import { MIME_TYPES, FILE_EXTENSIONS } from './types';
 
 /**
  * Registry of all supported document formats
+ *
+ * Provides factory methods for creating format handler instances based on
+ * file type detection. Implements lazy initialization to reduce bundle size.
+ *
+ * @class FormatRegistry
  */
 export class FormatRegistry {
   private static formats: Map<string, () => DocumentFormat> = new Map();
@@ -48,11 +69,22 @@ export class FormatRegistry {
   }
 
   /**
-   * Detect format from file and return appropriate handler
+   * Detect format from file and return appropriate handler instance
    *
-   * @param file - The file to detect format for
-   * @returns Promise<DocumentFormat> - Format handler instance
-   * @throws {Error} If format is not supported
+   * Automatically detects the file format based on MIME type and extension,
+   * then returns an instance of the appropriate format handler. Initializes
+   * the registry on first call (lazy loading).
+   *
+   * @param {File} file - The file to detect format for
+   * @returns {Promise<DocumentFormat>} Format handler instance ready to use
+   * @throws {Error} If format is not supported or not implemented
+   *
+   * @example
+   * ```typescript
+   * const file = new File(['Hello'], 'test.txt', { type: 'text/plain' });
+   * const format = await FormatRegistry.getFormat(file);
+   * const doc = await format.load(file);
+   * ```
    */
   static async getFormat(file: File): Promise<DocumentFormat> {
     await this.initialize();
@@ -80,10 +112,20 @@ export class FormatRegistry {
   }
 
   /**
-   * Detect format identifier from file
+   * Detect format identifier from file without loading handler
    *
-   * @param file - The file to detect
-   * @returns string | null - Format identifier or null if unknown
+   * Examines MIME type and file extension to determine the format identifier.
+   * Prefers MIME type over extension as it's more reliable. Returns null if
+   * the format cannot be determined.
+   *
+   * @param {File} file - The file to detect
+   * @returns {string | null} Format identifier (e.g., 'pdf', 'txt', 'csv') or null
+   *
+   * @example
+   * ```typescript
+   * const file = new File(['data'], 'data.csv', { type: 'text/csv' });
+   * const formatId = FormatRegistry.detectFormat(file); // Returns 'csv'
+   * ```
    */
   static detectFormat(file: File): string | null {
     // Try MIME type first (most reliable)
@@ -101,10 +143,24 @@ export class FormatRegistry {
   }
 
   /**
-   * Check if a file format is supported
+   * Check if a file format is supported by the registry
    *
-   * @param file - The file to check
-   * @returns Promise<boolean> - True if format is supported
+   * Determines whether the application can handle the given file format.
+   * Initializes the registry if needed. Useful for filtering file inputs
+   * or showing user-friendly error messages.
+   *
+   * @param {File} file - The file to check
+   * @returns {Promise<boolean>} True if format is supported, false otherwise
+   *
+   * @example
+   * ```typescript
+   * const file = new File(['test'], 'doc.txt', { type: 'text/plain' });
+   * if (await FormatRegistry.isSupported(file)) {
+   *   console.log('File can be processed');
+   * } else {
+   *   console.log('Unsupported file type');
+   * }
+   * ```
    */
   static async isSupported(file: File): Promise<boolean> {
     await this.initialize();
