@@ -42,6 +42,10 @@ The codebase follows a **modular, library-first architecture** with three distin
      - `ml.ts` - TensorFlow.js NER model integration
      - `merger.ts` - Deduplication and confidence-based merging
      - `luhn.ts` - Credit card validation algorithm
+   - `formats/` - Document format abstraction layer (multi-format support)
+     - `base/` - Abstract base classes and shared types
+     - `text/` - Plain text and Markdown handlers
+     - `structured/` - CSV/TSV handlers
    - `pdf/` - PDF processing pipeline (load, render, find, redact, export)
    - `images/` - Image processing and EXIF metadata removal
    - `fs/` - Cross-platform file I/O abstraction
@@ -94,6 +98,147 @@ UI Event → App.ts (state update) → lib module (processing) → App.ts (state
    - Apply black rectangles to canvas (`ctx.fillRect()`)
    - **PDFs**: Rasterize each page to PNG, embed in fresh PDF document (no text layers)
    - **Images**: Re-encode through canvas (strips EXIF/GPS metadata)
+
+## Document Format Abstraction Layer
+
+**NEW**: The app now supports multiple document formats beyond PDFs and images through a pluggable format abstraction system.
+
+### Supported Formats
+
+| Format | Extensions | Status | Rendering | Text Extraction | Export Formats |
+|--------|-----------|--------|-----------|----------------|----------------|
+| **Plain Text** | `.txt`, `.md` | ✅ Implemented | DOM | Native | `.txt` |
+| **CSV/TSV** | `.csv`, `.tsv` | ✅ Implemented | DOM (table) | Native | `.csv`, `.tsv`, `.pdf` |
+| **PDF** | `.pdf` | ✅ Legacy | Canvas | PDF.js | `.pdf` |
+| **Images** | `.png`, `.jpg`, `.webp`, etc. | ✅ Legacy | Canvas | OCR | Same format |
+| **Office Docs** | `.docx`, `.xlsx`, `.pptx` | 🔮 Planned | TBD | Library-based | `.pdf` |
+| **Rich Text** | `.rtf`, `.html` | 🔮 Planned | DOM | Native | `.pdf` |
+| **E-books** | `.epub`, `.mobi` | 🔮 Planned | DOM/Canvas | Library-based | `.pdf` |
+
+### Architecture Overview
+
+The format system uses a **factory pattern with lazy loading** to minimize bundle size:
+
+```
+FormatRegistry
+  ├─ detectFormat(file) → format ID
+  ├─ getFormat(file) → DocumentFormat instance
+  └─ Lazy imports format handlers on-demand
+
+DocumentFormat (abstract base class)
+  ├─ load(file) → Document
+  ├─ render(doc, container) → void
+  ├─ extractText(doc) → TextExtractionResult
+  ├─ findTextBoxes(doc, terms) → BoundingBox[]
+  ├─ redact(doc, boxes) → void
+  ├─ export(doc, options) → Blob
+  └─ cleanup() → void
+```
+
+### Key Files
+
+- **`src/lib/formats/base/DocumentFormat.ts`** - Abstract base class all formats extend
+- **`src/lib/formats/base/types.ts`** - Shared types (BoundingBox, Document, etc.)
+- **`src/lib/formats/base/FormatRegistry.ts`** - Format detection and factory
+- **`src/lib/formats/text/PlainTextFormat.ts`** - Text/Markdown implementation
+- **`src/lib/formats/structured/CsvFormat.ts`** - CSV/TSV implementation
+
+### Format-Specific Quirks
+
+#### Plain Text (.txt, .md)
+- **Rendering**: DOM-based with line numbers and monospace font
+- **Coordinates**: Line-based (x = char position * char width, y = line index * line height)
+- **Redaction**: Replaces text with block characters (`█`)
+- **Export**: Plain text with redactions applied
+- **No flattening needed** (text format is inherently secure after replacement)
+
+#### CSV/TSV
+- **Rendering**: HTML table with sticky headers
+- **Coordinates**: Cell-based (row, column indices)
+- **Detection**: Whole-cell matching (if any term found, entire cell is redacted)
+- **Redaction**: Replaces cell content with block characters
+- **Special features**:
+  - `redactColumn(columnName)` - Redact entire column by header name
+  - Auto-detects headers using heuristics
+- **Export**: CSV with redactions applied (uses PapaParse for proper escaping)
+
+#### PDFs and Images (Legacy)
+These formats still use the original pipeline (`src/lib/pdf/` and `src/lib/images/`) but will eventually be migrated to the format abstraction system.
+
+### Usage Pattern
+
+```typescript
+// Automatic format detection
+const format = await FormatRegistry.getFormat(file);
+
+// Load document
+const doc = await format.load(file);
+
+// Render to container
+await format.render(doc, { container: element });
+
+// Extract text for PII detection
+const { fullText } = await format.extractText(doc);
+
+// Run PII detection
+const terms = detectAllPII(fullText);
+
+// Find bounding boxes
+const boxes = await format.findTextBoxes(doc, terms);
+
+// Apply redactions
+await format.redact(doc, boxes);
+
+// Export redacted document
+const blob = await format.export(doc);
+
+// Cleanup
+format.cleanup();
+```
+
+### Adding New Format Handlers
+
+See `docs/FORMAT_HANDLER_GUIDE.md` for step-by-step instructions. Key steps:
+
+1. **Create format class** extending `DocumentFormat`
+2. **Implement required methods**: `load`, `render`, `extractText`, `findTextBoxes`, `redact`, `export`, `cleanup`
+3. **Register in FormatRegistry**: Add import and registration in `FormatRegistry.initialize()`
+4. **Add unit tests**: Follow pattern in `tests/unit/formats/`
+5. **Update type mappings**: Add MIME types and extensions to `types.ts`
+
+### Testing Multi-Format Files
+
+```bash
+# Run all format tests
+npm test tests/unit/formats/
+
+# Run specific format tests
+npm test tests/unit/formats/text/PlainTextFormat.test.ts
+npm test tests/unit/formats/structured/CsvFormat.test.ts
+
+# Test format registry
+npm test tests/unit/formats/base/FormatRegistry.test.ts
+```
+
+### Performance Considerations
+
+- **Lazy loading**: Format handlers are only imported when first used
+- **Bundle impact**: PlainTextFormat adds ~5KB, CsvFormat adds ~15KB (includes PapaParse)
+- **Memory**: Each format manages its own resources (cleanup on document close)
+- **Rendering**: DOM-based formats (text, CSV) are faster than canvas-based (PDF, images)
+
+### Coordinate System Differences
+
+Each format has its own coordinate system for `BoundingBox`:
+
+| Format | Coordinate System | Units | Notes |
+|--------|------------------|-------|-------|
+| PDF | Bottom-left origin | Points (1/72 inch) | Requires conversion to canvas coords |
+| Images | Top-left origin | Pixels | Direct canvas coordinates |
+| Plain Text | Top-left origin | Pixels (approximate) | Char width × line height estimation |
+| CSV | Cell-based | Row/Column indices | No pixel coordinates needed |
+
+The abstraction layer handles these differences internally—callers work with a unified `BoundingBox` interface.
 
 ## Critical Implementation Details
 
@@ -259,29 +404,288 @@ npm run dev
 
 ### Current Coverage
 
+**Core Detection:**
 - **`tests/unit/luhn.test.ts`**: Luhn algorithm for credit card validation
 - **`tests/unit/patterns.test.ts`**: PII regex detection (emails, phones, SSNs, cards)
 - **`tests/unit/merger.test.ts`**: ML/regex result merging and deduplication
+
+**Format Handlers:**
+- **`tests/unit/formats/base/FormatRegistry.test.ts`**: Format detection and factory
+- **`tests/unit/formats/text/PlainTextFormat.test.ts`**: Plain text handler (42 tests)
+- **`tests/unit/formats/structured/CsvFormat.test.ts`**: CSV/TSV handler (38 tests)
+
+**Integration Tests:**
+- **`tests/integration/App.test.ts`**: End-to-end format processing workflows
 
 ### Testing Philosophy
 
 - **Unit tests**: Pure functions in `src/lib/` (no DOM dependencies)
 - **Test data**: Known-valid samples (e.g., test credit card numbers from payment processor docs)
 - **Edge cases**: Empty strings, invalid formats, boundary conditions
+- **Isolation**: Each test is independent (no shared state)
+- **Fast feedback**: Unit tests complete in <100ms each
+
+### Testing Best Practices for Format Handlers
+
+#### Test Structure
+
+Follow the AAA pattern (Arrange, Act, Assert):
+
+```typescript
+describe('MyFormat', () => {
+  let format: MyFormat;
+
+  beforeEach(() => {
+    format = new MyFormat(); // Arrange: Fresh instance per test
+  });
+
+  it('should load a valid file', async () => {
+    // Arrange
+    const file = new File(['content'], 'test.myext', { type: 'application/x-myformat' });
+
+    // Act
+    const doc = await format.load(file);
+
+    // Assert
+    expect(doc.metadata.fileName).toBe('test.myext');
+    expect(doc.metadata.format).toBe('myformat');
+  });
+});
+```
+
+#### Required Test Categories
+
+Every format handler must test:
+
+1. **Constructor & Metadata**
+   - Format ID, name, extensions, MIME types
+   - Capabilities declaration
+   - `canHandle()` method
+
+2. **Loading**
+   - Valid files
+   - Empty files
+   - Corrupted files (should throw)
+   - Large files (performance test)
+
+3. **Text Extraction**
+   - Full text extraction
+   - Page/section-specific extraction (if applicable)
+   - Character position mapping (if applicable)
+
+4. **Text Box Finding**
+   - Single occurrence
+   - Multiple occurrences
+   - Multiple occurrences per line
+   - Case insensitivity
+   - Empty terms handling
+   - Original case preservation
+
+5. **Redaction**
+   - Basic redaction
+   - Multiple boxes
+   - Overlapping boxes
+   - Modified flag set correctly
+
+6. **Export**
+   - Blob type and size
+   - Redactions applied
+   - No recoverable data
+
+7. **Cleanup**
+   - No errors thrown
+   - Resources released
+
+#### Example Test Suite
+
+```typescript
+describe('TextFormat', () => {
+  let format: TextFormat;
+
+  beforeEach(() => {
+    format = new TextFormat();
+  });
+
+  // Category 1: Constructor & Metadata
+  describe('constructor', () => {
+    it('should have correct format metadata', () => {
+      expect(format.formatId).toBe('txt');
+      expect(format.supportedExtensions).toContain('txt');
+    });
+  });
+
+  // Category 2: Loading
+  describe('load', () => {
+    it('should load valid file', async () => { /* ... */ });
+    it('should handle empty file', async () => { /* ... */ });
+  });
+
+  // Category 3: Text Extraction
+  describe('extractText', () => {
+    it('should extract full text', async () => { /* ... */ });
+  });
+
+  // Category 4: Text Box Finding
+  describe('findTextBoxes', () => {
+    it('should find single occurrence', async () => { /* ... */ });
+    it('should be case-insensitive', async () => { /* ... */ });
+    it('should preserve original case', async () => { /* ... */ });
+  });
+
+  // Category 5: Redaction
+  describe('redact', () => {
+    it('should apply redactions', async () => { /* ... */ });
+    it('should mark as modified', async () => { /* ... */ });
+  });
+
+  // Category 6: Export
+  describe('export', () => {
+    it('should export as blob', async () => { /* ... */ });
+    it('should include redactions', async () => { /* ... */ });
+  });
+
+  // Category 7: Cleanup
+  describe('cleanup', () => {
+    it('should not throw', () => { /* ... */ });
+  });
+});
+```
+
+#### Test Data Helpers
+
+Create reusable test data:
+
+```typescript
+// tests/fixtures/formats.ts
+export const TEST_FILES = {
+  plainText: () => new File(['Hello World\nTest'], 'test.txt', { type: 'text/plain' }),
+  csv: () => new File(['name,email\nJohn,john@test.com'], 'test.csv', { type: 'text/csv' }),
+  empty: () => new File([''], 'empty.txt', { type: 'text/plain' })
+};
+
+export const TEST_PII = {
+  email: 'test@example.com',
+  phone: '+14155552671',
+  ssn: '123-45-6789'
+};
+```
+
+Usage:
+```typescript
+it('should detect emails', async () => {
+  const file = TEST_FILES.plainText();
+  const doc = await format.load(file);
+  const boxes = await format.findTextBoxes(doc, [TEST_PII.email]);
+  expect(boxes).toHaveLength(1);
+});
+```
+
+#### Snapshot Testing
+
+For complex output, use snapshots:
+
+```typescript
+it('should render correct HTML structure', async () => {
+  const file = new File(['test'], 'test.txt');
+  const doc = await format.load(file);
+
+  const container = document.createElement('div');
+  await format.render(doc, { container });
+
+  expect(container.innerHTML).toMatchSnapshot();
+});
+```
+
+#### Performance Testing
+
+For large files:
+
+```typescript
+it('should load large files within 1 second', async () => {
+  const largeContent = 'line\n'.repeat(10000);
+  const file = new File([largeContent], 'large.txt');
+
+  const start = performance.now();
+  await format.load(file);
+  const duration = performance.now() - start;
+
+  expect(duration).toBeLessThan(1000);
+});
+```
+
+#### Mock File Helpers
+
+For testing without real files:
+
+```typescript
+function createMockFile(content: string, name: string, mimeType?: string): File {
+  return new File([content], name, { type: mimeType || '' });
+}
+
+function createMockBlob(content: string, mimeType: string): Blob {
+  return new Blob([content], { type: mimeType });
+}
+```
 
 ### Running Specific Tests
 
 ```bash
-npx vitest tests/unit/luhn.test.ts      # Single file
-npx vitest -t "should validate"         # By test name pattern
+# Single file
+npx vitest tests/unit/luhn.test.ts
+
+# By test name pattern
+npx vitest -t "should validate"
+
+# By directory
+npx vitest tests/unit/formats/
+
+# Watch mode (re-run on file change)
+npx vitest tests/unit/formats/ --watch
+
+# UI mode (visual test runner)
+npm run test:ui
 ```
 
 ### Coverage Reports
 
 ```bash
-npm run test:coverage  # Generates coverage/ directory with HTML report
+# Generate coverage report
+npm run test:coverage
+
+# Open HTML report
 open coverage/index.html
+
+# Check specific file coverage
+npx vitest --coverage --coverage.include=src/lib/formats/text/PlainTextFormat.ts
 ```
+
+### Coverage Requirements
+
+- **Minimum**: 80% line coverage for new code
+- **Target**: 90%+ line coverage
+- **Critical paths**: 100% coverage (load, redact, export methods)
+
+### Debugging Tests
+
+```bash
+# Run single test with console output
+npx vitest -t "should load valid file" --reporter=verbose
+
+# Debug with Node inspector
+node --inspect-brk ./node_modules/.bin/vitest tests/unit/formats/text/PlainTextFormat.test.ts
+```
+
+### Continuous Integration
+
+Tests run automatically on:
+- Every commit (pre-commit hook)
+- Pull requests (GitHub Actions)
+- Main branch merges
+
+CI requirements:
+- ✅ All tests pass
+- ✅ Coverage ≥80%
+- ✅ No new lint errors
 
 ## Key Dependencies
 
@@ -345,6 +749,15 @@ To clear cached SW: Open DevTools → Application → Service Workers → Unregi
 │   │   ├── detect/           # PII patterns and validation
 │   │   │   ├── patterns.ts   # Regex-based detection
 │   │   │   └── luhn.ts       # Credit card Luhn algorithm
+│   │   ├── formats/          # Document format abstraction layer
+│   │   │   ├── base/         # Base classes and shared types
+│   │   │   │   ├── DocumentFormat.ts  # Abstract base class
+│   │   │   │   ├── types.ts           # Shared interfaces
+│   │   │   │   └── FormatRegistry.ts  # Format detection factory
+│   │   │   ├── text/         # Plain text format handlers
+│   │   │   │   └── PlainTextFormat.ts
+│   │   │   └── structured/   # Structured data handlers
+│   │   │       └── CsvFormat.ts
 │   │   ├── pdf/              # PDF processing pipeline
 │   │   │   ├── worker.ts     # PDF.js worker configuration
 │   │   │   ├── load.ts       # Load PDF documents
@@ -369,7 +782,16 @@ To clear cached SW: Open DevTools → Application → Service Workers → Unregi
 │   └── styles.css            # Global styles
 ├── tests/
 │   ├── unit/                 # Unit tests for lib modules
+│   │   ├── formats/          # Format handler tests
+│   │   │   ├── base/         # Registry and type tests
+│   │   │   ├── text/         # Plain text format tests
+│   │   │   └── structured/   # CSV format tests
+│   │   └── ...               # Other unit tests
 │   └── e2e.spec.ts           # End-to-end test stubs
+├── docs/                     # Documentation
+│   ├── FORMATS.md            # User guide for supported formats
+│   ├── FORMAT_HANDLER_GUIDE.md # Developer guide for adding formats
+│   └── ...                   # Other documentation
 ├── public/
 │   ├── icons/                # PWA icons (192x192, 512x512)
 │   └── manifest.webmanifest  # PWA manifest
