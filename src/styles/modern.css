@@ -1246,3 +1246,342 @@
   gap: 0.5rem;
 }
 
+/* =========================================
+   PRIVACY PANEL - Score, Risks, Recommendations
+   ========================================= */
+
+.privacy-panel {
+  position: fixed;
+  right: 2rem;
+  top: 8rem;
+  width: 400px;
+  max-height: calc(100vh - 10rem);
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  box-shadow: var(--glass-shadow);
+  overflow: hidden;
+  z-index: 100;
+  animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.privacy-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+}
+
+.privacy-panel-header h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.125rem;
+  color: var(--text-primary);
+}
+
+.privacy-panel-close {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  transition: color 0.2s ease;
+}
+
+.privacy-panel-close:hover {
+  color: var(--text-primary);
+}
+
+.privacy-panel-content {
+  padding: 1.5rem;
+  max-height: calc(100vh - 14rem);
+  overflow-y: auto;
+}
+
+.privacy-empty {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 2rem 1rem;
+  font-style: italic;
+}
+
+/* Privacy Score Section */
+.privacy-score-section {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.privacy-score-circle {
+  flex-shrink: 0;
+}
+
+.privacy-score-circle svg {
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+}
+
+.score-value {
+  font-size: 2rem;
+  font-weight: 700;
+  fill: var(--score-color);
+}
+
+.score-grade {
+  font-size: 0.875rem;
+  font-weight: 600;
+  fill: var(--text-secondary);
+}
+
+.privacy-score-breakdown {
+  flex: 1;
+  min-width: 0;
+}
+
+.privacy-score-breakdown h4 {
+  margin: 0 0 1rem 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.score-item {
+  display: grid;
+  grid-template-columns: 100px 1fr 40px;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.score-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.score-bar-container {
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.score-bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.6s ease, background 0.3s ease;
+}
+
+.score-number {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Privacy Risks Section */
+.privacy-risks-section {
+  margin-bottom: 2rem;
+}
+
+.privacy-risks-section h4,
+.privacy-recommendations-section h4 {
+  margin: 0 0 1rem 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.risk-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.risk-item {
+  padding: 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  transition: all 0.2s ease;
+}
+
+.risk-item:hover {
+  border-color: var(--border-hover);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.risk-item.risk-critical {
+  border-color: rgba(220, 38, 38, 0.3);
+  background: rgba(220, 38, 38, 0.05);
+}
+
+.risk-item.risk-high {
+  border-color: rgba(234, 88, 12, 0.3);
+  background: rgba(234, 88, 12, 0.05);
+}
+
+.risk-item.risk-medium {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.risk-item.risk-low {
+  border-color: rgba(251, 191, 36, 0.3);
+  background: rgba(251, 191, 36, 0.05);
+}
+
+.risk-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.risk-severity-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.risk-category {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.risk-title {
+  margin: 0 0 0.375rem 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.risk-description {
+  margin: 0 0 0.375rem 0;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.risk-details {
+  margin: 0.5rem 0 0 0;
+  padding: 0.5rem;
+  background: var(--bg-primary);
+  border-radius: 6px;
+  font-size: 0.75rem;
+}
+
+.risk-details code {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  color: var(--accent-blue);
+}
+
+/* Privacy Recommendations Section */
+.privacy-recommendations-section {
+  margin-bottom: 2rem;
+}
+
+.recommendation-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.recommendation-list li {
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  background: var(--bg-secondary);
+  border-left: 3px solid var(--accent-blue);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.recommendation-list li:last-child {
+  margin-bottom: 0;
+}
+
+/* Privacy Actions */
+.privacy-actions {
+  text-align: center;
+}
+
+.btn-large {
+  padding: 1rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  transition: all 0.2s ease;
+}
+
+.btn-large:hover {
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+  transform: translateY(-2px);
+}
+
+.privacy-action-hint {
+  margin: 0.75rem 0 0 0;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .privacy-panel {
+    right: 1rem;
+    left: 1rem;
+    width: auto;
+    top: auto;
+    bottom: 1rem;
+    max-height: 50vh;
+  }
+
+  .privacy-score-section {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .score-item {
+    grid-template-columns: 80px 1fr 40px;
+  }
+}
+
