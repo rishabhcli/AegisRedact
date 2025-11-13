@@ -59,7 +59,7 @@ export class RefreshTokenModel {
   /**
    * Revoke a refresh token
    */
-  static async revoke(token: string): Promise<void> {
+  static async revoke(token: string): Promise<any> {
     const token_hash = crypto.createHash('sha256').update(token).digest('hex');
 
     await query(
@@ -71,7 +71,7 @@ export class RefreshTokenModel {
   /**
    * Revoke all refresh tokens for a user
    */
-  static async revokeAllForUser(userId: string): Promise<void> {
+  static async revokeAllForUser(userId: string): Promise<any> {
     await query(
       'UPDATE refresh_tokens SET revoked = true WHERE user_id = $1',
       [userId]

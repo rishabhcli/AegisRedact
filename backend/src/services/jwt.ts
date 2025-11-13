@@ -2,7 +2,7 @@
  * JWT token service
  */
 
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import { env } from '../config/env.js';
 
 export interface AccessTokenPayload {
@@ -23,7 +23,7 @@ export class JWTService {
     return jwt.sign(payload, env.JWT_ACCESS_SECRET, {
       algorithm: 'HS256', // Explicitly set algorithm to prevent confusion attacks
       expiresIn: env.JWT_ACCESS_EXPIRES_IN,
-    });
+    } as SignOptions);
   }
 
   /**
@@ -33,7 +33,7 @@ export class JWTService {
     return jwt.sign(payload, env.JWT_REFRESH_SECRET, {
       algorithm: 'HS256', // Explicitly set algorithm to prevent confusion attacks
       expiresIn: env.JWT_REFRESH_EXPIRES_IN,
-    });
+    } as SignOptions);
   }
 
   /**

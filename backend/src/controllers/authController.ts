@@ -29,7 +29,7 @@ const refreshSchema = z.object({
 /**
  * Register a new user
  */
-export async function register(req: Request, res: Response) {
+export async function register(req: Request, res: Response): Promise<any> {
   try {
     const { email, password } = registerSchema.parse(req.body);
 
@@ -80,14 +80,14 @@ export async function register(req: Request, res: Response) {
     }
 
     console.error('Register error:', error);
-    res.status(500).json({ error: 'Registration failed' });
+    return res.status(500).json({ error: 'Registration failed' });
   }
 }
 
 /**
  * Login user
  */
-export async function login(req: Request, res: Response) {
+export async function login(req: Request, res: Response): Promise<any> {
   try {
     const { email, password } = loginSchema.parse(req.body);
 
@@ -131,14 +131,14 @@ export async function login(req: Request, res: Response) {
     }
 
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Login failed' });
+    return res.status(500).json({ error: 'Login failed' });
   }
 }
 
 /**
  * Refresh access token
  */
-export async function refresh(req: Request, res: Response) {
+export async function refresh(req: Request, res: Response): Promise<any> {
   try {
     const { refreshToken } = refreshSchema.parse(req.body);
 
@@ -170,14 +170,14 @@ export async function refresh(req: Request, res: Response) {
     }
 
     console.error('Refresh error:', error);
-    res.status(401).json({ error: 'Invalid or expired refresh token' });
+    return res.status(401).json({ error: 'Invalid or expired refresh token' });
   }
 }
 
 /**
  * Logout user (revoke refresh token)
  */
-export async function logout(req: Request, res: Response) {
+export async function logout(req: Request, res: Response): Promise<any> {
   try {
     const { refreshToken } = refreshSchema.parse(req.body);
 
@@ -190,14 +190,14 @@ export async function logout(req: Request, res: Response) {
     }
 
     console.error('Logout error:', error);
-    res.status(500).json({ error: 'Logout failed' });
+    return res.status(500).json({ error: 'Logout failed' });
   }
 }
 
 /**
  * Get current user profile
  */
-export async function getProfile(req: AuthRequest, res: Response) {
+export async function getProfile(req: AuthRequest, res: Response): Promise<any> {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
@@ -211,14 +211,14 @@ export async function getProfile(req: AuthRequest, res: Response) {
     res.json({ user: UserModel.toPublic(user) });
   } catch (error) {
     console.error('Get profile error:', error);
-    res.status(500).json({ error: 'Failed to get profile' });
+    return res.status(500).json({ error: 'Failed to get profile' });
   }
 }
 
 /**
  * Delete user account
  */
-export async function deleteAccount(req: AuthRequest, res: Response) {
+export async function deleteAccount(req: AuthRequest, res: Response): Promise<any> {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
@@ -229,6 +229,6 @@ export async function deleteAccount(req: AuthRequest, res: Response) {
     res.json({ message: 'Account deleted successfully' });
   } catch (error) {
     console.error('Delete account error:', error);
-    res.status(500).json({ error: 'Failed to delete account' });
+    return res.status(500).json({ error: 'Failed to delete account' });
   }
 }
