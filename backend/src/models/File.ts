@@ -83,7 +83,7 @@ export class FileModel {
   /**
    * Update last accessed timestamp
    */
-  static async updateLastAccessed(fileId: string): Promise<void> {
+  static async updateLastAccessed(fileId: string): Promise<any> {
     await query(
       'UPDATE files SET last_accessed_at = NOW() WHERE id = $1',
       [fileId]

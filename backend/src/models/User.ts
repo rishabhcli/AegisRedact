@@ -110,7 +110,7 @@ export class UserModel {
   /**
    * Delete user (will cascade delete files and tokens)
    */
-  static async delete(userId: string): Promise<void> {
+  static async delete(userId: string): Promise<any> {
     await query('DELETE FROM users WHERE id = $1', [userId]);
   }
 

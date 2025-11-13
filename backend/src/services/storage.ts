@@ -151,7 +151,7 @@ export class StorageService {
   /**
    * Save file to storage
    */
-  async saveFile(storageKey: string, data: Buffer): Promise<void> {
+  async saveFile(storageKey: string, data: Buffer): Promise<any> {
     if (env.STORAGE_PROVIDER === 's3') {
       if (!this.s3Client) {
         throw new Error('S3 client not initialized');
@@ -213,7 +213,7 @@ export class StorageService {
   /**
    * Delete file from storage
    */
-  async deleteFile(storageKey: string): Promise<void> {
+  async deleteFile(storageKey: string): Promise<any> {
     if (env.STORAGE_PROVIDER === 's3') {
       if (!this.s3Client) {
         throw new Error('S3 client not initialized');

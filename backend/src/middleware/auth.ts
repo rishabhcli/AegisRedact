@@ -15,12 +15,13 @@ export interface AuthRequest extends Request {
 /**
  * Middleware to verify JWT access token
  */
-export function authenticate(req: AuthRequest, res: Response, next: NextFunction) {
+export function authenticate(req: AuthRequest, res: Response, next: NextFunction): void {
   try {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Missing or invalid authorization header' });
+      res.status(401).json({ error: 'Missing or invalid authorization header' });
+      return;
     }
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
@@ -33,14 +34,14 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
 
     next();
   } catch (error) {
-    return res.status(401).json({ error: 'Invalid or expired token' });
+    res.status(401).json({ error: 'Invalid or expired token' });
   }
 }
 
 /**
  * Optional authentication - attach user if token is valid, but don't fail if missing
  */
-export function optionalAuthenticate(req: AuthRequest, res: Response, next: NextFunction) {
+export function optionalAuthenticate(req: AuthRequest, _res: Response, next: NextFunction): void {
   try {
     const authHeader = req.headers.authorization;
 

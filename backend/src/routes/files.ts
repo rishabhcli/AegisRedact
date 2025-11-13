@@ -22,7 +22,7 @@ router.get('/', fileController.listFiles);
 router.post('/upload/request', uploadLimiter, fileController.requestUpload);
 
 // Upload file data (for local storage)
-router.post('/:id/upload', uploadLimiter, async (req: AuthRequest, res) => {
+router.post('/:id/upload', uploadLimiter, async (req: AuthRequest, res): Promise<any> => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
@@ -48,11 +48,12 @@ router.post('/:id/upload', uploadLimiter, async (req: AuthRequest, res) => {
 
         // Verify file size
         if (data.length !== file.file_size_bytes) {
-          return res.status(400).json({
+          res.status(400).json({
             error: 'File size mismatch',
             expected: file.file_size_bytes,
             received: data.length,
           });
+          return;
         }
 
         // Save to storage
@@ -70,12 +71,12 @@ router.post('/:id/upload', uploadLimiter, async (req: AuthRequest, res) => {
     });
   } catch (error) {
     console.error('Upload route error:', error);
-    res.status(500).json({ error: 'Upload failed' });
+    return res.status(500).json({ error: 'Upload failed' });
   }
 });
 
 // Download file
-router.get('/download/:storageKey', async (req: AuthRequest, res) => {
+router.get('/download/:storageKey', async (req: AuthRequest, res): Promise<any> => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
@@ -103,7 +104,7 @@ router.get('/download/:storageKey', async (req: AuthRequest, res) => {
     res.send(data);
   } catch (error) {
     console.error('Download error:', error);
-    res.status(500).json({ error: 'Download failed' });
+    return res.status(500).json({ error: 'Download failed' });
   }
 });
 

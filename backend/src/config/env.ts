@@ -63,8 +63,8 @@ export const env = {
 
   JWT_ACCESS_SECRET: parsed.data.JWT_ACCESS_SECRET,
   JWT_REFRESH_SECRET: parsed.data.JWT_REFRESH_SECRET,
-  JWT_ACCESS_EXPIRES_IN: parsed.data.JWT_ACCESS_EXPIRES_IN,
-  JWT_REFRESH_EXPIRES_IN: parsed.data.JWT_REFRESH_EXPIRES_IN,
+  JWT_ACCESS_EXPIRES_IN: parsed.data.JWT_ACCESS_EXPIRES_IN as string,
+  JWT_REFRESH_EXPIRES_IN: parsed.data.JWT_REFRESH_EXPIRES_IN as string,
 
   BCRYPT_SALT_ROUNDS: parseInt(parsed.data.BCRYPT_SALT_ROUNDS, 10),
 
@@ -85,4 +85,4 @@ export const env = {
   isDevelopment: parsed.data.NODE_ENV === 'development',
   isProduction: parsed.data.NODE_ENV === 'production',
   isTest: parsed.data.NODE_ENV === 'test',
-} as const;
+};

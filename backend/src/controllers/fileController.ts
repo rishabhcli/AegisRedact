@@ -2,7 +2,7 @@
  * File storage controller
  */
 
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { z } from 'zod';
 import { FileModel } from '../models/File.js';
 import { UserModel } from '../models/User.js';
@@ -30,7 +30,7 @@ const uploadSchema = z.object({
 /**
  * Get all files for authenticated user
  */
-export async function listFiles(req: AuthRequest, res: Response) {
+export async function listFiles(req: AuthRequest, res: Response): Promise<any> {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
@@ -45,14 +45,14 @@ export async function listFiles(req: AuthRequest, res: Response) {
     res.json({ files: metadata });
   } catch (error) {
     console.error('List files error:', error);
-    res.status(500).json({ error: 'Failed to list files' });
+    return res.status(500).json({ error: 'Failed to list files' });
   }
 }
 
 /**
  * Request file upload (get presigned URL or upload endpoint)
  */
-export async function requestUpload(req: AuthRequest, res: Response) {
+export async function requestUpload(req: AuthRequest, res: Response): Promise<any> {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
@@ -94,14 +94,14 @@ export async function requestUpload(req: AuthRequest, res: Response) {
     }
 
     console.error('Request upload error:', error);
-    res.status(500).json({ error: 'Failed to request upload' });
+    return res.status(500).json({ error: 'Failed to request upload' });
   }
 }
 
 /**
  * Complete file upload (for local storage)
  */
-export async function completeUpload(req: AuthRequest, res: Response) {
+export async function completeUpload(req: AuthRequest, res: Response): Promise<any> {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
@@ -121,14 +121,14 @@ export async function completeUpload(req: AuthRequest, res: Response) {
     res.json({ message: 'Upload completed', file: FileModel.toMetadata(file) });
   } catch (error) {
     console.error('Complete upload error:', error);
-    res.status(500).json({ error: 'Failed to complete upload' });
+    return res.status(500).json({ error: 'Failed to complete upload' });
   }
 }
 
 /**
  * Get file metadata and download URL
  */
-export async function getFile(req: AuthRequest, res: Response) {
+export async function getFile(req: AuthRequest, res: Response): Promise<any> {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
@@ -160,14 +160,14 @@ export async function getFile(req: AuthRequest, res: Response) {
     });
   } catch (error) {
     console.error('Get file error:', error);
-    res.status(500).json({ error: 'Failed to get file' });
+    return res.status(500).json({ error: 'Failed to get file' });
   }
 }
 
 /**
  * Delete a file
  */
-export async function deleteFile(req: AuthRequest, res: Response) {
+export async function deleteFile(req: AuthRequest, res: Response): Promise<any> {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
@@ -195,14 +195,14 @@ export async function deleteFile(req: AuthRequest, res: Response) {
     res.json({ message: 'File deleted successfully' });
   } catch (error) {
     console.error('Delete file error:', error);
-    res.status(500).json({ error: 'Failed to delete file' });
+    return res.status(500).json({ error: 'Failed to delete file' });
   }
 }
 
 /**
  * Get storage quota information
  */
-export async function getStorageQuota(req: AuthRequest, res: Response) {
+export async function getStorageQuota(req: AuthRequest, res: Response): Promise<any> {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
@@ -217,6 +217,6 @@ export async function getStorageQuota(req: AuthRequest, res: Response) {
     });
   } catch (error) {
     console.error('Get storage quota error:', error);
-    res.status(500).json({ error: 'Failed to get storage quota' });
+    return res.status(500).json({ error: 'Failed to get storage quota' });
   }
 }

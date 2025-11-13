@@ -290,6 +290,8 @@ export class PatternBuilder {
 
     // Save or update
     try {
+      let savedPattern: CustomPattern | undefined;
+
       if (this.editingPattern) {
         customPatternRegistry.updatePattern(this.editingPattern.id, {
           name,
@@ -299,6 +301,8 @@ export class PatternBuilder {
           caseSensitive,
           enabled
         });
+        // Get the updated pattern by ID
+        savedPattern = customPatternRegistry.getAllPatterns().find(p => p.id === this.editingPattern!.id);
       } else {
         customPatternRegistry.addPattern({
           name,
@@ -308,10 +312,15 @@ export class PatternBuilder {
           caseSensitive,
           enabled
         });
+        // Get the newly added pattern by name (should be the most recent one with this name)
+        const allPatterns = customPatternRegistry.getAllPatterns();
+        savedPattern = allPatterns.find(p => p.name === name);
       }
 
       this.close();
-      this.onSave?.(customPatternRegistry.getAllPatterns()[0]); // TODO: Get actual pattern
+      if (savedPattern) {
+        this.onSave?.(savedPattern);
+      }
     } catch (error) {
       alert(`Failed to save pattern: ${(error as Error).message}`);
     }
