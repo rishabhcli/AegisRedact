@@ -241,11 +241,6 @@ export class AuthSession {
     if (refreshToken && userJson) {
       this.refreshToken = refreshToken;
       this.user = JSON.parse(userJson);
-
-      // Try to refresh access token on load
-      this.refreshAccessToken().catch(() => {
-        this.clearSession();
-      });
     }
   }
 
@@ -260,5 +255,13 @@ export class AuthSession {
 
     localStorage.removeItem('auth_refresh_token');
     localStorage.removeItem('auth_user');
+  }
+
+  hasRefreshToken(): boolean {
+    return this.refreshToken !== null;
+  }
+
+  clearSessionState(): void {
+    this.clearSession();
   }
 }

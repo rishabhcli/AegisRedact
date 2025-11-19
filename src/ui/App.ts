@@ -17,14 +17,11 @@ import { MLDownloadPrompt } from './components/MLDownloadPrompt';
 import { TextViewer } from './components/TextViewer';
 import { SanitizeOptionsModal } from './components/SanitizeOptions';
 import { themeManager } from '../lib/theme/ThemeManager';
-
-// Lazy-loaded modules (code splitting)
-// These will be loaded on-demand to reduce initial bundle size
-// import { AuthSession } from '../lib/auth/session.js';
-// import { CloudSyncService } from '../lib/cloud/sync.js';
-// import { AuthModal } from './components/auth/AuthModal.js';
-// import { UserMenu } from './components/auth/UserMenu.js';
-// import { Dashboard } from './components/Dashboard.js';
+import { AuthSession } from '../lib/auth/session';
+import { CloudSyncService } from '../lib/cloud/sync';
+import { AuthModal } from './components/auth/AuthModal';
+import { UserMenu } from './components/auth/UserMenu';
+import { Dashboard } from './components/Dashboard';
 
 import { loadPdf, renderPageToCanvas, getPageCount } from '../lib/pdf/load';
 import { findTextBoxes, extractPageText } from '../lib/pdf/find';
@@ -123,12 +120,9 @@ export class App {
       () => this.handleBatchExport()
     );
 
-    // Check if user is logged in and initialize cloud sync
-    if (this.authSession.isAuthenticated()) {
-      this.initializeCloudSync();
-    } else {
-      this.toolbar.showLoginButton();
-    }
+    this.toolbar.showLoginButton();
+
+    void this.initializeAuthState();
 
     this.fileList = new FileList((index) => this.handleFileSelect(index));
     this.canvasStage = new CanvasStage(
@@ -262,6 +256,28 @@ export class App {
         });
       }
     }, 500);
+  }
+
+  private async initializeAuthState(): Promise<void> {
+    if (!this.authSession.hasRefreshToken()) {
+      return;
+    }
+
+    try {
+      await this.authSession.refreshAccessToken();
+      if (this.authSession.isAuthenticated()) {
+        this.initializeCloudSync();
+      } else {
+        this.toolbar.showLoginButton();
+      }
+    } catch (error) {
+      console.error('[App] Failed to refresh session:', error);
+      this.authSession.clearSessionState();
+      this.cloudSync = null;
+      this.userMenu = null;
+      this.toolbar.showLoginButton();
+      this.toast.info('Session expired. Please sign in again.');
+    }
   }
 
   private showLanding(): void {
