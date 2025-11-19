@@ -44,6 +44,18 @@ export class CloudSyncService {
     // Encrypt file client-side
     const encrypted = await encryptFile(fileData.buffer, password, user.salt);
 
+    // Check remaining quota before attempting upload
+    const quota = await this.getStorageQuota();
+    const remainingBytes = quota.quota - quota.used;
+
+    if (encrypted.encryptedData.byteLength > remainingBytes) {
+      const requiredMb = (encrypted.encryptedData.byteLength / (1024 * 1024)).toFixed(1);
+      const remainingMb = (remainingBytes / (1024 * 1024)).toFixed(1);
+      throw new Error(
+        `Not enough storage left to upload this file. Requires ${requiredMb} MB, but only ${remainingMb} MB is available.`
+      );
+    }
+
     // Request upload URL
     const requestResponse = await this.authSession.authenticatedFetch(
       '/api/files/upload/request',

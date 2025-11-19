@@ -2,27 +2,32 @@
  * Dashboard component for managing cloud files
  */
 
-import type { CloudFile } from '../../lib/cloud/sync.js';
-import { saveBlob } from '../../lib/fs/io.js';
+import type { CloudFile, StorageQuota } from '../../lib/cloud/sync.js';
 
 export class Dashboard {
   private element: HTMLElement;
   private files: CloudFile[] = [];
+  private storageQuota: StorageQuota | null = null;
   private onClose: () => void;
   private onDownload: (fileId: string) => Promise<void>;
   private onDelete: (fileId: string) => Promise<void>;
   private onRefresh: () => Promise<CloudFile[]>;
+  private onGetQuota: () => Promise<StorageQuota>;
 
   constructor(
     onClose: () => void,
     onDownload: (fileId: string) => Promise<void>,
     onDelete: (fileId: string) => Promise<void>,
-    onRefresh: () => Promise<CloudFile[]>
+    onRefresh: () => Promise<CloudFile[]>,
+    onGetQuota: () => Promise<StorageQuota>,
+    initialQuota: StorageQuota | null = null
   ) {
     this.onClose = onClose;
     this.onDownload = onDownload;
     this.onDelete = onDelete;
     this.onRefresh = onRefresh;
+    this.onGetQuota = onGetQuota;
+    this.storageQuota = initialQuota;
     this.element = this.createElement();
   }
 
@@ -71,6 +76,7 @@ export class Dashboard {
         <p style="margin: 8px 0 0 0; color: #666; font-size: 14px;">
           Encrypted files stored in your secure cloud storage
         </p>
+        <div class="dashboard-quota" style="margin-top: 16px;"></div>
       </div>
 
       <div class="dashboard-content" style="flex: 1; overflow-y: auto; padding: 24px;">
@@ -83,7 +89,7 @@ export class Dashboard {
     // Attach event listeners
     setTimeout(() => {
       this.attachEventListeners();
-      this.loadFiles();
+      this.loadData();
     }, 0);
 
     return overlay;
@@ -104,27 +110,48 @@ export class Dashboard {
     });
   }
 
-  private async loadFiles(): Promise<void> {
+  private async loadData(): Promise<void> {
     const fileList = this.element.querySelector('.file-list') as HTMLElement;
+    const quotaContainer = this.element.querySelector('.dashboard-quota') as HTMLElement;
 
     fileList.innerHTML = `
       <div style="text-align: center; padding: 32px; color: #666;">
-        <div style="font-size: 18px; margin-bottom: 8px;">Loading...</div>
+        <div style="font-size: 18px; margin-bottom: 8px;">Loading files...</div>
       </div>
     `;
 
-    try {
-      this.files = await this.onRefresh();
+    quotaContainer.innerHTML = this.renderQuotaPlaceholder();
+
+    const [filesResult, quotaResult] = await Promise.allSettled([
+      this.onRefresh(),
+      this.onGetQuota()
+    ]);
+
+    if (filesResult.status === 'fulfilled') {
+      this.files = filesResult.value;
       this.renderFiles();
-    } catch (error) {
+    } else {
       fileList.innerHTML = `
         <div style="text-align: center; padding: 32px; color: #c00;">
           <div style="font-size: 18px; margin-bottom: 8px;">⚠️ Error loading files</div>
           <div style="font-size: 14px;">${
-            error instanceof Error ? error.message : 'An error occurred'
+            filesResult.reason instanceof Error
+              ? filesResult.reason.message
+              : 'An error occurred'
           }</div>
         </div>
       `;
+    }
+
+    if (quotaResult.status === 'fulfilled') {
+      this.storageQuota = quotaResult.value;
+      this.renderQuota();
+    } else {
+      quotaContainer.innerHTML = this.renderQuotaError(
+        quotaResult.reason instanceof Error
+          ? quotaResult.reason.message
+          : 'Unable to load quota'
+      );
     }
   }
 
@@ -237,6 +264,87 @@ export class Dashboard {
     });
   }
 
+  private renderQuota(): void {
+    const container = this.element.querySelector('.dashboard-quota') as HTMLElement;
+
+    if (!container) return;
+    if (!this.storageQuota) {
+      container.innerHTML = this.renderQuotaPlaceholder();
+      return;
+    }
+
+    const { used, quota } = this.storageQuota;
+    const percentUsed = Math.min(
+      100,
+      Math.round(this.storageQuota.percentUsed ?? (used / quota) * 100)
+    );
+    const remaining = Math.max(quota - used, 0);
+
+    container.innerHTML = `
+      <div class="quota-card">
+        <div class="quota-card__header">
+          <div>
+            <div class="quota-label">Storage usage</div>
+            <div class="quota-values">${this.formatBytes(used)} used · ${this.formatBytes(quota)} total</div>
+          </div>
+          <span class="quota-chip">${percentUsed}%</span>
+        </div>
+        <div class="quota-progress brutalist">
+          <div class="quota-progress__fill" style="width: ${percentUsed}%;"></div>
+        </div>
+        <div class="quota-meta">
+          <span>Remaining</span>
+          <strong>${this.formatBytes(remaining)}</strong>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderQuotaPlaceholder(): string {
+    return `
+      <div class="quota-card loading">
+        <div class="quota-card__header">
+          <div class="skeleton-text" style="width: 120px;"></div>
+          <div class="skeleton-pill" style="width: 48px;"></div>
+        </div>
+        <div class="quota-progress brutalist">
+          <div class="quota-progress__fill" style="width: 35%;"></div>
+        </div>
+        <div class="quota-meta">
+          <span class="skeleton-text" style="width: 80px;"></span>
+          <strong class="skeleton-text" style="width: 60px;"></strong>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderQuotaError(message: string): string {
+    return `
+      <div class="quota-card error">
+        <div class="quota-card__header">
+          <div class="quota-label">Storage usage</div>
+          <span class="quota-chip">—</span>
+        </div>
+        <div class="quota-meta" style="color: #b91c1c;">
+          ${this.escapeHtml(message)}
+        </div>
+      </div>
+    `;
+  }
+
+  private async refreshQuota(): Promise<void> {
+    const quotaContainer = this.element.querySelector('.dashboard-quota') as HTMLElement;
+
+    try {
+      this.storageQuota = await this.onGetQuota();
+      this.renderQuota();
+    } catch (error) {
+      quotaContainer.innerHTML = this.renderQuotaError(
+        error instanceof Error ? error.message : 'Unable to refresh quota'
+      );
+    }
+  }
+
   private async handleDownload(fileId: string): Promise<void> {
     const button = this.element.querySelector(
       `.file-download[data-file-id="${fileId}"]`
@@ -278,6 +386,7 @@ export class Dashboard {
       await this.onDelete(fileId);
       this.files = this.files.filter((f) => f.id !== fileId);
       this.renderFiles();
+      void this.refreshQuota();
     } catch (error) {
       alert(`Delete failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       button.disabled = false;
@@ -286,9 +395,16 @@ export class Dashboard {
   }
 
   private formatBytes(bytes: number): string {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    if (bytes >= 1024 * 1024 * 1024) {
+      return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+    }
+    if (bytes >= 1024 * 1024) {
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+    if (bytes >= 1024) {
+      return (bytes / 1024).toFixed(1) + ' KB';
+    }
+    return bytes + ' B';
   }
 
   private formatDate(dateString: string): string {

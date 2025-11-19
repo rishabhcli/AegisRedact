@@ -16,6 +16,11 @@ import { Settings } from './components/Settings';
 import { MLDownloadPrompt } from './components/MLDownloadPrompt';
 import { TextViewer } from './components/TextViewer';
 import { SanitizeOptionsModal } from './components/SanitizeOptions';
+import { AuthSession } from '../lib/auth/session.js';
+import { CloudSyncService, type StorageQuota } from '../lib/cloud/sync.js';
+import { AuthModal } from './components/auth/AuthModal.js';
+import { UserMenu } from './components/auth/UserMenu.js';
+import { Dashboard } from './components/Dashboard.js';
 import { themeManager } from '../lib/theme/ThemeManager';
 
 // Lazy-loaded modules (code splitting)
@@ -70,6 +75,7 @@ export class App {
   private authSession: AuthSession;
   private cloudSync: CloudSyncService | null = null;
   private userMenu: UserMenu | null = null;
+  private storageQuota: StorageQuota | null = null;
 
   private files: FileItem[] = [];
   private currentFileIndex: number = -1;
@@ -119,7 +125,7 @@ export class App {
       () => this.handleNewFile(),
       () => this.openSettings(),
       () => this.handleShowAuth(),
-      () => this.handleShowDashboard(),
+      () => void this.handleShowDashboard(),
       () => this.handleBatchExport()
     );
 
@@ -1452,10 +1458,25 @@ export class App {
     this.userMenu = new UserMenu(
       user,
       () => void this.handleLogout(),
-      () => this.handleShowDashboard()
+      () => void this.handleShowDashboard(),
+      this.storageQuota
     );
 
     this.toolbar.showUserMenu(this.userMenu.getElement());
+    void this.fetchAndApplyQuota();
+  }
+
+  private async fetchAndApplyQuota(): Promise<StorageQuota> {
+    if (!this.cloudSync) {
+      throw new Error('Cloud sync not initialized');
+    }
+
+    const quota = await this.cloudSync.getStorageQuota();
+    this.storageQuota = quota;
+    const remaining = Math.max(quota.quota - quota.used, 0);
+    this.toolbar.updateStorageBadge(remaining, quota.quota);
+    this.userMenu?.updateQuota(quota);
+    return quota;
   }
 
   /**
@@ -1497,7 +1518,9 @@ export class App {
       await this.authSession.logout();
       this.cloudSync = null;
       this.userMenu = null;
+      this.storageQuota = null;
       this.toolbar.showLoginButton();
+      this.toolbar.updateStorageBadge(null);
       this.toast.info('Signed out');
     } catch (error) {
       console.error('Logout error:', error);
@@ -1508,10 +1531,18 @@ export class App {
   /**
    * Show cloud file dashboard
    */
-  private handleShowDashboard(): void {
+  private async handleShowDashboard(): Promise<void> {
     if (!this.cloudSync) {
       this.toast.error('Cloud sync not initialized');
       return;
+    }
+
+    let quota: StorageQuota | null = null;
+    try {
+      quota = await this.fetchAndApplyQuota();
+    } catch (error) {
+      console.error('Quota refresh error:', error);
+      this.toast.error('Unable to refresh storage info');
     }
 
     const dashboard = new Dashboard(
@@ -1548,7 +1579,13 @@ export class App {
           return [];
         }
       },
-      this.authSession
+      async () => {
+        if (!this.cloudSync) {
+          throw new Error('Cloud sync not initialized');
+        }
+        return this.fetchAndApplyQuota();
+      },
+      quota
     );
 
     dashboard.show();

@@ -4,20 +4,24 @@
  */
 
 import type { UserProfile } from '../../../lib/auth/session.js';
+import type { StorageQuota } from '../../../lib/cloud/sync.js';
 
 export class UserMenu {
   private element: HTMLElement;
   private dropdownOpen = false;
   private onLogout: () => void;
   private onViewFiles: () => void;
+  private storageQuota: StorageQuota | null = null;
 
   constructor(
     private user: UserProfile,
     onLogout: () => void,
-    onViewFiles: () => void
+    onViewFiles: () => void,
+    storageQuota: StorageQuota | null = null
   ) {
     this.onLogout = onLogout;
     this.onViewFiles = onViewFiles;
+    this.storageQuota = storageQuota;
     this.element = this.createElement();
   }
 
@@ -106,19 +110,30 @@ export class UserMenu {
   }
 
   private getDropdownContent(): string {
-    const usedGB = (this.user.storage_used_bytes / (1024 * 1024 * 1024)).toFixed(2);
-    const quotaGB = (this.user.storage_quota_bytes / (1024 * 1024 * 1024)).toFixed(2);
-    const percentUsed = Math.round(
-      (this.user.storage_used_bytes / this.user.storage_quota_bytes) * 100
-    );
+    const quota = this.storageQuota ?? {
+      used: this.user.storage_used_bytes,
+      quota: this.user.storage_quota_bytes,
+      percentUsed: Math.round(
+        (this.user.storage_used_bytes / this.user.storage_quota_bytes) * 100
+      ),
+    };
+
+    const usedGB = this.formatBytes(quota.used);
+    const quotaGB = this.formatBytes(quota.quota);
+    const percentUsed = Math.min(100, Math.round(quota.percentUsed));
+    const remaining = Math.max(quota.quota - quota.used, 0);
+    const remainingText = this.formatBytes(remaining, true) + ' left';
 
     return `
       <div style="padding: 16px; border-bottom: 1px solid #e0e0e0;">
         <div style="font-weight: 600; color: #1a1a1a; margin-bottom: 4px;">
           ${this.user.email}
         </div>
-        <div style="font-size: 12px; color: #666;">
-          Signed in
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 12px; color: #666;">Signed in</span>
+          <span class="quota-pill" style="font-size: 12px; padding: 4px 8px; border: 2px solid #111; border-radius: 999px; background: #fef3c7; color: #111; font-weight: 700; letter-spacing: -0.01em; box-shadow: 4px 4px 0 #111;">
+            ${remainingText}
+          </span>
         </div>
       </div>
 
@@ -129,8 +144,8 @@ export class UserMenu {
             ${usedGB} / ${quotaGB} GB
           </span>
         </div>
-        <div style="width: 100%; height: 6px; background: #e0e0e0; border-radius: 3px; overflow: hidden;">
-          <div style="width: ${percentUsed}%; height: 100%; background: linear-gradient(90deg, #2563eb 0%, #1e40af 100%);"></div>
+        <div class="storage-progress brutalist" style="width: 100%; height: 10px; background: #fff; border: 2px solid #111; border-radius: 6px; overflow: hidden; box-shadow: 4px 4px 0 #111;">
+          <div style="width: ${percentUsed}%; height: 100%; background: linear-gradient(90deg, #111827 0%, #fb7185 100%);"></div>
         </div>
       </div>
 
@@ -196,6 +211,25 @@ export class UserMenu {
     const newElement = this.createElement();
     container.replaceWith(newElement);
     this.element = newElement;
+  }
+
+  updateQuota(quota: StorageQuota): void {
+    this.storageQuota = quota;
+    const container = this.element;
+    const newElement = this.createElement();
+    container.replaceWith(newElement);
+    this.element = newElement;
+  }
+
+  private formatBytes(bytes: number, short: boolean = false): string {
+    const gb = bytes / (1024 * 1024 * 1024);
+    const mb = bytes / (1024 * 1024);
+
+    if (gb >= 0.1) {
+      return short ? `${gb.toFixed(1)} GB` : `${gb.toFixed(2)}`;
+    }
+
+    return short ? `${mb.toFixed(0)} MB` : `${mb.toFixed(1)}`;
   }
 
   getElement(): HTMLElement {

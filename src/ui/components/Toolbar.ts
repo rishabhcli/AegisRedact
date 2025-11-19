@@ -131,6 +131,7 @@ export class Toolbar {
         </button>
       </div>
       <div class="toolbar-auth" style="margin-top: 16px;">
+        <div class="storage-badge" style="display: none;"></div>
         <div class="auth-container"></div>
       </div>
     `;
@@ -215,6 +216,7 @@ export class Toolbar {
    * Show login button for unauthenticated users
    */
   showLoginButton(): void {
+    this.updateStorageBadge(null);
     const container = this.element.querySelector('.auth-container');
     if (container) {
       container.innerHTML = `
@@ -248,5 +250,33 @@ export class Toolbar {
       container.innerHTML = '';
       container.appendChild(userMenuElement);
     }
+  }
+
+  updateStorageBadge(remainingBytes: number | null, quotaBytes?: number | null): void {
+    const badge = this.element.querySelector('.storage-badge') as HTMLDivElement | null;
+    if (!badge) return;
+
+    if (remainingBytes === null || !quotaBytes) {
+      badge.style.display = 'none';
+      badge.textContent = '';
+      badge.removeAttribute('aria-label');
+      return;
+    }
+
+    const remainingText = this.formatRemaining(remainingBytes);
+    const percent = Math.max(0, Math.round((remainingBytes / quotaBytes) * 100));
+
+    badge.textContent = `${remainingText} free`;
+    badge.setAttribute('aria-label', `${remainingText} remaining (${percent}% free)`);
+    badge.style.display = 'inline-flex';
+  }
+
+  private formatRemaining(bytes: number): string {
+    const gb = bytes / (1024 * 1024 * 1024);
+    if (gb >= 0.1) {
+      return `${gb.toFixed(1)} GB`;
+    }
+    const mb = bytes / (1024 * 1024);
+    return `${Math.max(mb, 0).toFixed(0)} MB`;
   }
 }
