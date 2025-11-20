@@ -5,18 +5,18 @@
 /* Enhanced CSS Variables for Modern Theme */
 :root {
   /* Gradient colors */
-  --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  --gradient-secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  --gradient-success: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-  --gradient-mesh: radial-gradient(at 0% 0%, rgba(102, 126, 234, 0.3) 0%, transparent 50%),
-                   radial-gradient(at 100% 0%, rgba(118, 75, 162, 0.3) 0%, transparent 50%),
-                   radial-gradient(at 100% 100%, rgba(74, 144, 226, 0.3) 0%, transparent 50%),
-                   radial-gradient(at 0% 100%, rgba(118, 75, 162, 0.3) 0%, transparent 50%);
+  --gradient-primary: linear-gradient(135deg, #0f1115 0%, #ffd125 100%);
+  --gradient-secondary: linear-gradient(135deg, #ff4d4f 0%, #ff9f1c 100%);
+  --gradient-success: linear-gradient(135deg, #14c57c 0%, #6af7b7 100%);
+  --gradient-mesh: radial-gradient(at 0% 0%, rgba(47, 107, 255, 0.2) 0%, transparent 50%),
+                   radial-gradient(at 100% 0%, rgba(255, 77, 79, 0.2) 0%, transparent 50%),
+                   radial-gradient(at 100% 100%, rgba(255, 209, 37, 0.3) 0%, transparent 50%),
+                   radial-gradient(at 0% 100%, rgba(20, 197, 124, 0.2) 0%, transparent 50%);
 
   /* Glassmorphism values */
-  --glass-bg: rgba(26, 31, 53, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --glass-bg: #fff8e6;
+  --glass-border: #0f1115;
+  --glass-shadow: 12px 12px 0 rgba(15, 17, 21, 0.2);
 
   /* Enhanced shadows */
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
@@ -38,28 +38,24 @@
 /* Glassmorphism Components */
 .glass-card {
   background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-  border-radius: 16px;
+  border: 3px solid var(--glass-border);
+  border-radius: 14px;
   box-shadow: var(--glass-shadow);
 }
 
 .glass-card-hover {
   background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-  border-radius: 16px;
+  border: 3px solid var(--glass-border);
+  border-radius: 14px;
   box-shadow: var(--glass-shadow);
-  transition: all 0.3s ease;
+  transition: all 0.2s ease-out;
 }
 
 .glass-card-hover:hover {
-  background: rgba(26, 31, 53, 0.85);
-  border-color: rgba(102, 126, 234, 0.3);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5), var(--shadow-glow);
-  transform: translateY(-2px);
+  background: var(--accent-yellow);
+  border-color: var(--glass-border);
+  box-shadow: 14px 14px 0 rgba(15, 17, 21, 0.2);
+  transform: translate(-4px, -4px);
 }
 
 /* Gradient Text */
@@ -199,10 +195,13 @@
 
 .feature-card {
   padding: var(--space-lg);
-  border-radius: 16px;
+  border-radius: 14px;
   text-align: center;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease-out;
   cursor: default;
+  border: 3px solid var(--border-color);
+  background: var(--bg-elevated);
+  box-shadow: 12px 12px 0 rgba(15, 17, 21, 0.15);
 }
 
 .feature-icon {
@@ -212,15 +211,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 16px;
-  background: var(--gradient-primary);
-  box-shadow: var(--shadow-glow);
+  border-radius: 12px;
+  background: var(--accent-yellow);
+  box-shadow: 8px 8px 0 rgba(15, 17, 21, 0.15);
+  border: 3px solid var(--border-color);
 }
 
 .feature-icon svg {
   width: 32px;
   height: 32px;
-  color: white;
+  color: var(--border-color);
 }
 
 .feature-title {
@@ -242,23 +242,22 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  border-radius: 999px;
+  border-radius: 12px;
   font-size: 0.875rem;
   font-weight: 600;
-  background: var(--glass-bg);
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--glass-border);
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border-color);
 }
 
 .badge-success {
-  background: rgba(46, 204, 113, 0.1);
-  border-color: rgba(46, 204, 113, 0.3);
+  background: #d9f7e9;
+  border-color: var(--accent-green);
   color: var(--accent-green);
 }
 
 .badge-info {
-  background: rgba(74, 144, 226, 0.1);
-  border-color: rgba(74, 144, 226, 0.3);
+  background: #dfe8ff;
+  border-color: var(--accent-blue);
   color: var(--accent-blue);
 }
 
