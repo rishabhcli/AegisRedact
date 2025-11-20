@@ -3,20 +3,23 @@
  */
 
 import type { CloudFile } from '../../lib/cloud/sync.js';
-import { saveBlob } from '../../lib/fs/io.js';
 
 export class Dashboard {
   private element: HTMLElement;
   private files: CloudFile[] = [];
   private onClose: () => void;
-  private onDownload: (fileId: string) => Promise<void>;
-  private onDelete: (fileId: string) => Promise<void>;
+  private onDownload: (file: CloudFile) => Promise<void>;
+  private onDelete: (file: CloudFile) => Promise<void>;
   private onRefresh: () => Promise<CloudFile[]>;
+  private statusBar: HTMLElement | null = null;
+  private statusText: HTMLElement | null = null;
+  private statusIndicator: HTMLElement | null = null;
+  private fileListElement: HTMLElement | null = null;
 
   constructor(
     onClose: () => void,
-    onDownload: (fileId: string) => Promise<void>,
-    onDelete: (fileId: string) => Promise<void>,
+    onDownload: (file: CloudFile) => Promise<void>,
+    onDelete: (file: CloudFile) => Promise<void>,
     onRefresh: () => Promise<CloudFile[]>
   ) {
     this.onClose = onClose;
@@ -73,12 +76,25 @@ export class Dashboard {
         </p>
       </div>
 
+      <div
+        class="dashboard-status"
+        style="display: none; align-items: center; gap: 8px; padding: 12px 24px; border-bottom: 1px solid #e0e0e0; background: #f8fafc; color: #1f2937; font-size: 14px;"
+      >
+        <span class="status-indicator" aria-hidden="true">⏳</span>
+        <span class="status-text">Loading...</span>
+      </div>
+
       <div class="dashboard-content" style="flex: 1; overflow-y: auto; padding: 24px;">
         <div class="file-list"></div>
       </div>
     `;
 
     overlay.appendChild(dashboard);
+
+    this.statusBar = dashboard.querySelector('.dashboard-status');
+    this.statusText = dashboard.querySelector('.status-text');
+    this.statusIndicator = dashboard.querySelector('.status-indicator');
+    this.fileListElement = dashboard.querySelector('.file-list');
 
     // Attach event listeners
     setTimeout(() => {
@@ -105,7 +121,7 @@ export class Dashboard {
   }
 
   private async loadFiles(): Promise<void> {
-    const fileList = this.element.querySelector('.file-list') as HTMLElement;
+    const fileList = this.fileListElement as HTMLElement;
 
     fileList.innerHTML = `
       <div style="text-align: center; padding: 32px; color: #666;">
@@ -114,8 +130,10 @@ export class Dashboard {
     `;
 
     try {
+      this.setStatus('Loading files...', 'loading');
       this.files = await this.onRefresh();
       this.renderFiles();
+      this.setStatus('Files loaded', 'success');
     } catch (error) {
       fileList.innerHTML = `
         <div style="text-align: center; padding: 32px; color: #c00;">
@@ -125,6 +143,10 @@ export class Dashboard {
           }</div>
         </div>
       `;
+      this.setStatus(
+        error instanceof Error ? error.message : 'Failed to load files',
+        'error'
+      );
     }
   }
 
@@ -238,6 +260,9 @@ export class Dashboard {
   }
 
   private async handleDownload(fileId: string): Promise<void> {
+    const file = this.files.find((f) => f.id === fileId);
+    if (!file) return;
+
     const button = this.element.querySelector(
       `.file-download[data-file-id="${fileId}"]`
     ) as HTMLButtonElement;
@@ -247,13 +272,20 @@ export class Dashboard {
     button.textContent = 'Downloading...';
 
     try {
-      await this.onDownload(fileId);
+      await this.runWithStatus('Downloading and decrypting...', () =>
+        this.onDownload(file)
+      );
+      this.setStatus('File opened in editor', 'success');
       button.textContent = '✓ Downloaded';
       setTimeout(() => {
         button.disabled = false;
         button.textContent = originalText;
       }, 2000);
     } catch (error) {
+      this.setStatus(
+        error instanceof Error ? error.message : 'Download failed',
+        'error'
+      );
       alert(`Download failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       button.disabled = false;
       button.textContent = originalText;
@@ -275,13 +307,53 @@ export class Dashboard {
     button.textContent = 'Deleting...';
 
     try {
-      await this.onDelete(fileId);
-      this.files = this.files.filter((f) => f.id !== fileId);
-      this.renderFiles();
+      await this.runWithStatus('Deleting file...', () => this.onDelete(file));
+      await this.loadFiles();
+      this.setStatus('File deleted', 'success');
     } catch (error) {
+      this.setStatus(
+        error instanceof Error ? error.message : 'Delete failed',
+        'error'
+      );
       alert(`Delete failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       button.disabled = false;
       button.textContent = 'Delete';
+    }
+  }
+
+  private setStatus(
+    message: string,
+    state: 'idle' | 'loading' | 'success' | 'error'
+  ): void {
+    if (!this.statusBar || !this.statusIndicator || !this.statusText) return;
+
+    if (!message) {
+      this.statusBar.style.display = 'none';
+      return;
+    }
+
+    this.statusBar.style.display = 'flex';
+    this.statusBar.dataset.state = state;
+    this.statusText.textContent = message;
+
+    const indicator =
+      state === 'loading' ? '⏳' : state === 'success' ? '✓' : state === 'error' ? '⚠️' : '•';
+    this.statusIndicator.textContent = indicator;
+    this.statusIndicator.style.color =
+      state === 'success' ? '#16a34a' : state === 'error' ? '#dc2626' : '#1f2937';
+  }
+
+  private async runWithStatus<T>(message: string, action: () => Promise<T>): Promise<T> {
+    this.setStatus(message, 'loading');
+    try {
+      const result = await action();
+      return result;
+    } catch (error) {
+      this.setStatus(
+        error instanceof Error ? error.message : 'Unexpected error',
+        'error'
+      );
+      throw error;
     }
   }
 

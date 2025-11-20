@@ -1516,26 +1516,28 @@ export class App {
 
     const dashboard = new Dashboard(
       () => dashboard.hide(),
-      async (fileId) => {
-        // Download file
+      async (file) => {
         try {
-          const { data, filename } = await this.cloudSync!.downloadFile(fileId);
-          const blob = new Blob([data], { type: 'application/pdf' });
-          await saveBlob(blob, filename);
-          this.toast.success('File downloaded!');
+          const { data, filename, mimeType } = await this.cloudSync!.downloadFile(file.id);
+          await this.openDownloadedFile(data, filename, mimeType ?? file.mime_type ?? undefined);
+          dashboard.hide();
+          this.toast.success(`Opened ${filename}`);
         } catch (error) {
           console.error('Download error:', error);
           this.toast.error('Download failed');
+          throw error;
         }
       },
-      async (fileId) => {
-        // Delete file
+      async (file) => {
         try {
-          await this.cloudSync!.deleteFile(fileId);
-          this.toast.success('File deleted');
+          await this.cloudSync!.deleteFile(file.id);
+          this.toast.info(
+            `Freed ${this.formatBytes(file.file_size_bytes)} by deleting ${file.filename}`
+          );
         } catch (error) {
           console.error('Delete error:', error);
           this.toast.error('Delete failed');
+          throw error;
         }
       },
       async () => {
@@ -1552,6 +1554,52 @@ export class App {
     );
 
     dashboard.show();
+  }
+
+  private formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  private inferMimeType(filename: string, fallback?: string | null): string {
+    const ext = filename.split('.').pop()?.toLowerCase();
+
+    switch (ext) {
+      case 'pdf':
+        return 'application/pdf';
+      case 'png':
+        return 'image/png';
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'gif':
+        return 'image/gif';
+      case 'webp':
+        return 'image/webp';
+      case 'txt':
+        return 'text/plain';
+      case 'md':
+        return 'text/markdown';
+      case 'csv':
+        return 'text/csv';
+      case 'tsv':
+        return 'text/tab-separated-values';
+      default:
+        return fallback || 'application/octet-stream';
+    }
+  }
+
+  private async openDownloadedFile(
+    data: Uint8Array,
+    filename: string,
+    mimeType?: string | null
+  ): Promise<void> {
+    const resolvedMime = this.inferMimeType(filename, mimeType);
+    const blob = new Blob([data], { type: resolvedMime });
+    const file = new File([blob], filename, { type: resolvedMime });
+
+    await this.handleFiles([file]);
   }
 
   private async handlePdfDownload() {

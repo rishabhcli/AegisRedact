@@ -86,7 +86,9 @@ export class CloudSyncService {
   /**
    * Download and decrypt file from cloud
    */
-  async downloadFile(fileId: string): Promise<{ data: Uint8Array; filename: string }> {
+  async downloadFile(
+    fileId: string
+  ): Promise<{ data: Uint8Array; filename: string; mimeType?: string | null }> {
     const password = this.authSession.getPassword();
 
     if (!password) {
@@ -127,6 +129,7 @@ export class CloudSyncService {
     return {
       data: new Uint8Array(decryptedData),
       filename: metadata.filename,
+      mimeType: metadata.mime_type,
     };
   }
 
