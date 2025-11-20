@@ -23,6 +23,7 @@ export class Toolbar {
   private onShowAuth: (() => void) | null = null;
   private onShowDashboard: (() => void) | null = null;
   private onBatchExport: (() => void) | null = null;
+  private onLoadFromDevice: (() => void) | null = null;
 
   constructor(
     onChange: (options: ToolbarOptions) => void,
@@ -32,7 +33,8 @@ export class Toolbar {
     onSettings: () => void,
     onShowAuth?: () => void,
     onShowDashboard?: () => void,
-    onBatchExport?: () => void
+    onBatchExport?: () => void,
+    onLoadFromDevice?: () => void
   ) {
     this.options = {
       findEmails: true,
@@ -51,6 +53,7 @@ export class Toolbar {
     this.onShowAuth = onShowAuth || null;
     this.onShowDashboard = onShowDashboard || null;
     this.onBatchExport = onBatchExport || null;
+    this.onLoadFromDevice = onLoadFromDevice || null;
     this.element = this.createToolbar();
   }
 
@@ -82,6 +85,16 @@ export class Toolbar {
             <path d="M12 5v14M5 12h14"/>
           </svg>
           <span>New File</span>
+        </button>
+        <button id="btn-load-device" class="btn btn-secondary" aria-label="Load a saved export from this device">
+          <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="16 16 12 12 8 16"/>
+            <line x1="12" y1="12" x2="12" y2="21"/>
+            <path d="M20 20H4"/>
+            <polyline points="16 8 12 4 8 8"/>
+            <line x1="12" y1="4" x2="12" y2="13"/>
+          </svg>
+          <span>Load from Device</span>
         </button>
         <button id="btn-reset" class="btn btn-secondary" aria-label="Load new files">
           <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -163,6 +176,10 @@ export class Toolbar {
       this.onReset();
     });
 
+    toolbar.querySelector('#btn-load-device')?.addEventListener('click', () => {
+      this.onLoadFromDevice?.();
+    });
+
     toolbar.querySelector('#btn-settings')?.addEventListener('click', () => {
       this.onSettings();
     });
@@ -225,6 +242,9 @@ export class Toolbar {
           </svg>
           <span style="vertical-align: middle;">Sign In</span>
         </button>
+        <p style="margin: 10px 0 0 0; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.4;">
+          Offline-first by design: files are saved locally. Cloud storage is optional if you want synced backups.
+        </p>
       `;
       const button = container.querySelector('.login-button') as HTMLButtonElement;
       button?.addEventListener('click', () => this.onShowAuth?.());
@@ -245,8 +265,16 @@ export class Toolbar {
   showUserMenu(userMenuElement: HTMLElement): void {
     const container = this.element.querySelector('.auth-container');
     if (container) {
-      container.innerHTML = '';
-      container.appendChild(userMenuElement);
+      container.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div class="user-menu-wrapper"></div>
+          <p style="margin: 0; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.4;">
+            Offline-first by design: files are saved locally. Cloud storage is optional if you want synced backups.
+          </p>
+        </div>
+      `;
+      const wrapper = container.querySelector('.user-menu-wrapper');
+      wrapper?.appendChild(userMenuElement);
     }
   }
 }

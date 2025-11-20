@@ -12,6 +12,7 @@ export class PdfViewer {
   private onDownload: () => void;
   private onBack: () => void;
   private onStartRedacting: (() => void) | null = null;
+  private onSaveToCloud: (() => void) | null = null;
   private mode: 'initial' | 'preview' = 'preview';
 
   constructor(onDownload: () => void, onBack: () => void, onStartRedacting?: () => void) {
@@ -40,8 +41,11 @@ export class PdfViewer {
           <button id="pdf-start-redacting-btn" class="btn btn-primary" aria-label="Start redacting" style="display: none;">
             <span>Start Redacting →</span>
           </button>
-          <button id="pdf-download-btn" class="btn btn-primary" aria-label="Download redacted PDF" style="display: none;">
-            <span>Download PDF</span>
+          <button id="pdf-download-btn" class="btn btn-secondary" aria-label="Save redacted PDF locally" style="display: none;">
+            <span>Save Locally</span>
+          </button>
+          <button id="pdf-save-cloud-btn" class="btn btn-primary" aria-label="Save redacted PDF to cloud" style="display: none;">
+            <span>Save to Cloud</span>
           </button>
         </div>
       </div>
@@ -67,6 +71,12 @@ export class PdfViewer {
     viewer.querySelector('#pdf-start-redacting-btn')?.addEventListener('click', () => {
       if (this.onStartRedacting) {
         this.onStartRedacting();
+      }
+    });
+
+    viewer.querySelector('#pdf-save-cloud-btn')?.addEventListener('click', () => {
+      if (this.onSaveToCloud) {
+        this.onSaveToCloud();
       }
     });
 
@@ -100,6 +110,7 @@ export class PdfViewer {
     const backBtn = this.element.querySelector('#pdf-back-btn') as HTMLElement;
     const startBtn = this.element.querySelector('#pdf-start-redacting-btn') as HTMLElement;
     const downloadBtn = this.element.querySelector('#pdf-download-btn') as HTMLElement;
+    const saveCloudBtn = this.element.querySelector('#pdf-save-cloud-btn') as HTMLElement;
 
     if (this.mode === 'initial') {
       titleEl.textContent = 'PDF Document';
@@ -107,12 +118,14 @@ export class PdfViewer {
       backBtn.style.display = 'none';
       startBtn.style.display = 'inline-block';
       downloadBtn.style.display = 'none';
+      saveCloudBtn.style.display = 'none';
     } else {
       titleEl.textContent = 'Redacted PDF Preview';
       subtitleEl.textContent = 'Your document has been redacted. Review it below.';
       backBtn.style.display = 'inline-block';
       startBtn.style.display = 'none';
       downloadBtn.style.display = 'inline-block';
+      saveCloudBtn.style.display = this.onSaveToCloud ? 'inline-block' : 'none';
     }
   }
 
@@ -184,5 +197,10 @@ export class PdfViewer {
       URL.revokeObjectURL(this.blobUrl);
       this.blobUrl = null;
     }
+  }
+
+  setSaveToCloudHandler(handler: (() => void) | null): void {
+    this.onSaveToCloud = handler;
+    this.updateHeader();
   }
 }

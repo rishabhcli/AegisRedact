@@ -20,11 +20,11 @@ import { themeManager } from '../lib/theme/ThemeManager';
 
 // Lazy-loaded modules (code splitting)
 // These will be loaded on-demand to reduce initial bundle size
-// import { AuthSession } from '../lib/auth/session.js';
-// import { CloudSyncService } from '../lib/cloud/sync.js';
-// import { AuthModal } from './components/auth/AuthModal.js';
-// import { UserMenu } from './components/auth/UserMenu.js';
-// import { Dashboard } from './components/Dashboard.js';
+import { AuthSession } from '../lib/auth/session.js';
+import { CloudSyncService } from '../lib/cloud/sync.js';
+import { AuthModal } from './components/auth/AuthModal.js';
+import { UserMenu } from './components/auth/UserMenu.js';
+import { Dashboard } from './components/Dashboard.js';
 
 import { loadPdf, renderPageToCanvas, getPageCount } from '../lib/pdf/load';
 import { findTextBoxes, extractPageText } from '../lib/pdf/find';
@@ -41,7 +41,7 @@ import { detectAllPIIWithMetadata, type DetectionOptions } from '../lib/detect/p
 import type { DetectionResult } from '../lib/detect/merger';
 // Lazy-loaded: ML detection module (~280KB)
 // import { loadMLModel, isMLAvailable } from '../lib/detect/ml';
-import { saveBlob } from '../lib/fs/io';
+import { pickFiles, saveBlob, ACCEPT_ALL } from '../lib/fs/io';
 import { mapPIIToOCRBoxes, expandBoxes as expandOCRBoxes } from '../lib/ocr/mapper';
 
 import { FormatRegistry } from '../lib/formats/base/FormatRegistry';
@@ -120,7 +120,8 @@ export class App {
       () => this.openSettings(),
       () => this.handleShowAuth(),
       () => this.handleShowDashboard(),
-      () => this.handleBatchExport()
+      () => this.handleBatchExport(),
+      () => void this.handleLoadFromDevice()
     );
 
     // Check if user is logged in and initialize cloud sync
@@ -1125,6 +1126,18 @@ export class App {
     }
   }
 
+  private getRedactedFileName(originalName: string, fallbackExtension: string = 'pdf'): string {
+    const lastDotIndex = originalName.lastIndexOf('.');
+
+    if (lastDotIndex > 0) {
+      const base = originalName.substring(0, lastDotIndex);
+      const ext = originalName.substring(lastDotIndex);
+      return `${base}-redacted${ext}`;
+    }
+
+    return `${originalName}-redacted.${fallbackExtension}`;
+  }
+
   private showSanitizeModal() {
     const pdfBytes = this.pdfBytes ? new Uint8Array(this.pdfBytes) : null;
 
@@ -1456,6 +1469,7 @@ export class App {
     );
 
     this.toolbar.showUserMenu(this.userMenu.getElement());
+    this.pdfViewer.setSaveToCloudHandler(() => void this.handlePdfSaveToCloud());
   }
 
   /**
@@ -1498,6 +1512,7 @@ export class App {
       this.cloudSync = null;
       this.userMenu = null;
       this.toolbar.showLoginButton();
+      this.pdfViewer.setSaveToCloudHandler(null);
       this.toast.info('Signed out');
     } catch (error) {
       console.error('Logout error:', error);
@@ -1563,18 +1578,43 @@ export class App {
     try {
       const blob = new Blob([this.lastExportedPdfBytes], { type: 'application/pdf' });
       const originalName = this.files[this.currentFileIndex].file.name;
-      const newName = originalName.replace('.pdf', '-redacted.pdf');
+      const newName = this.getRedactedFileName(originalName, 'pdf');
 
+      this.toast.info(`Saving ${newName} locally...`);
       await saveBlob(blob, newName);
 
       // Show success animation
       const successAnim = new SuccessAnimation();
       successAnim.show();
 
-      this.toast.success('PDF downloaded successfully!');
+      this.toast.success(`Saved locally as ${newName}`);
     } catch (error) {
       this.toast.error('Failed to download PDF');
       console.error(error);
+    }
+  }
+
+  private async handlePdfSaveToCloud() {
+    if (!this.lastExportedPdfBytes) {
+      this.toast.error('No PDF to save');
+      return;
+    }
+
+    if (!this.cloudSync) {
+      this.toast.error('Sign in to sync to the cloud');
+      return;
+    }
+
+    try {
+      const originalName = this.files[this.currentFileIndex]?.file.name || 'redacted.pdf';
+      const filename = this.getRedactedFileName(originalName, 'pdf');
+      this.toast.info(`Uploading ${filename} to cloud...`);
+
+      await this.cloudSync.uploadFile(this.lastExportedPdfBytes, filename, 'application/pdf');
+      this.toast.success(`Saved ${filename} to your cloud vault`);
+    } catch (error) {
+      console.error('Cloud save error:', error);
+      this.toast.error('Failed to save to cloud');
     }
   }
 
@@ -1596,6 +1636,24 @@ export class App {
     }, 300);
 
     this.toast.info('Back to editing mode');
+  }
+
+  private async handleLoadFromDevice() {
+    try {
+      const files = await pickFiles(ACCEPT_ALL, true);
+
+      if (files.length === 0) {
+        this.toast.info('No files selected');
+        return;
+      }
+
+      this.toast.info('Opening files from your device...');
+      await this.handleFiles(files);
+      this.toast.success('Loaded files from your device');
+    } catch (error) {
+      console.error('Failed to load from device:', error);
+      this.toast.error('Could not load files from your device');
+    }
   }
 
   private async handleStartRedacting() {
