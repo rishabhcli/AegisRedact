@@ -165,10 +165,14 @@ describe('AnalyticsAggregator', () => {
     });
 
     it('should normalize grid values', () => {
+      // Grid is 10x10 on 1000x1400 page, so cellWidth=100, cellHeight=140
+      // Box center determines cell: cellX = floor(centerX/100), cellY = floor(centerY/140)
+      // For cell (0,0): centerX < 100 and centerY < 140
+      // For cell (1,1): 100 <= centerX < 200 and 140 <= centerY < 280
       const boxes: Box[] = [
-        { x: 50, y: 50, w: 100, h: 20, text: 'test1' }, // Cell (0, 0)
-        { x: 50, y: 50, w: 100, h: 20, text: 'test2' }, // Cell (0, 0)
-        { x: 150, y: 150, w: 100, h: 20, text: 'test3' }, // Cell (1, 1)
+        { x: 0, y: 0, w: 100, h: 20, text: 'test1' },    // center (50, 10) → Cell (0, 0)
+        { x: 0, y: 50, w: 100, h: 20, text: 'test2' },   // center (50, 60) → Cell (0, 0)
+        { x: 100, y: 150, w: 100, h: 20, text: 'test3' }, // center (150, 160) → Cell (1, 1)
       ];
 
       const grid = AnalyticsAggregator.computeDensityGrid(boxes, 1000, 1400, 10);
