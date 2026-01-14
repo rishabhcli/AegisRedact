@@ -20,17 +20,48 @@ export interface OCRResult {
 }
 
 /**
+ * OCR progress callback for tracking recognition progress
+ */
+export type OCRProgressCallback = (progress: number, status: string) => void;
+
+/**
+ * OCR options for customization
+ */
+export interface OCROptions {
+  lang?: string;
+  onProgress?: OCRProgressCallback;
+}
+
+/**
  * Perform OCR on an image canvas and return text with word-level bounding boxes
  * This is used for images and scanned PDFs where PDF.js text coordinates aren't available
+ *
+ * Per Tesseract.js best practices (Context7):
+ * - Uses logger option for progress tracking
+ * - Properly terminates worker after use
+ * - Handles errors gracefully
  */
 export async function ocrImageCanvas(
   canvas: HTMLCanvasElement,
-  lang: string = 'eng'
+  langOrOptions: string | OCROptions = 'eng'
 ): Promise<OCRResult> {
+  // Normalize options
+  const options: OCROptions = typeof langOrOptions === 'string'
+    ? { lang: langOrOptions }
+    : langOrOptions;
+
+  const lang = options.lang || 'eng';
   let worker;
 
   try {
-    worker = await createWorker(lang);
+    // Create worker with optional progress logger (per Tesseract.js docs)
+    worker = await createWorker(lang, 1, {
+      logger: options.onProgress
+        ? (m: { status: string; progress: number }) => {
+            options.onProgress!(Math.round(m.progress * 100), m.status);
+          }
+        : undefined
+    });
   } catch (error) {
     // Enhanced error for worker creation failures (download, network, etc.)
     const errorMessage = error instanceof Error ? error.message : String(error);
